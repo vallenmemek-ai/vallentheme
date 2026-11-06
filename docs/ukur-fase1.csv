@@ -1,0 +1,8 @@
+video,hwdec,diminta,vo,cpu_persen,rss_mb,drop
+1080p H.264 24fps,no,no,gpu,40.3,169,0
+1080p H.264 24fps,no,vaapi,gpu,40.4,175,0
+1080p H.264 24fps,no,auto-safe,gpu,39.1,201,0
+4K H.264 24fps,no,auto-safe,gpu,77.5,315,0
+4K H.264 24fps,no,no,x11,91.5,199,0
+1080p VP9 30fps,no,auto-safe,gpu,55.2,179,0
+foto 4K,no,auto-safe,gpu,1.0,158,0

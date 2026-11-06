@@ -13,3 +13,10 @@ workspace = true
 vallentheme-core.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+x11rb.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true

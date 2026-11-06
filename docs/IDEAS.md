@@ -10,3 +10,8 @@ tanpa persetujuan pemilik proyek.
 - Profil wallpaper per workspace/desktop virtual.
 - Sinkronisasi pengaturan antar mesin (butuh akun — bertentangan dengan "tanpa telemetri").
 - Dukungan Wallpaper Engine (format `.pkg`).
+- **Cermin ikon desktop (MATE/Caja)**: set latar Caja ke warna kunci `#010101`
+  (shading solid), naikkan wallpaper di atas window desktop Caja, lalu salin isi
+  window Caja ke atas wallpaper memakai X Composite + Damage dengan chroma-key.
+  Pendekatan yang dipakai Fresco (`caja_mirror.rs`). Target v0.2.
+- Cermin serupa untuk Nemo (Cinnamon) dan PCManFM (LXDE).
