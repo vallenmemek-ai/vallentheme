@@ -1,0 +1,76 @@
+/* ===== Warna dasar (token dari panduan/02) ===== */
+@define-color window_bg_color #0A0A0D;
+@define-color window_fg_color #ECECF1;
+@define-color view_bg_color #0A0A0D;
+@define-color view_fg_color #ECECF1;
+@define-color headerbar_bg_color #0A0A0D;
+@define-color headerbar_backdrop_color #0A0A0D;
+@define-color headerbar_fg_color #ECECF1;
+@define-color headerbar_border_color rgba(255,255,255,0.06);
+@define-color card_bg_color #131318;
+@define-color card_fg_color #ECECF1;
+@define-color popover_bg_color #131318;
+@define-color popover_fg_color #ECECF1;
+@define-color dialog_bg_color #131318;
+@define-color dialog_fg_color #ECECF1;
+@define-color accent_bg_color #6C63FF;
+@define-color accent_color #7F78FF;
+@define-color accent_fg_color #FFFFFF;
+@define-color destructive_bg_color #FF5C6C;
+@define-color success_bg_color #3DDC97;
+@define-color warning_bg_color #FFB74D;
+
+/* ===== Header ===== */
+headerbar { box-shadow: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.vt-header-title { font-size: 15px; font-weight: 700; }
+.vt-header-subtitle { font-size: 11px; color: #8B8B99; }
+
+/* ===== Status chip ===== */
+.vt-chip { background: #1B1B22; border-radius: 999px; padding: 0 12px; min-height: 30px; font-size: 12px; }
+.vt-chip .dot { min-width: 8px; min-height: 8px; border-radius: 999px; background: #5E5E6B; }
+.vt-chip.running .dot { background: #3DDC97; }
+.vt-chip.paused .dot, .vt-chip.degraded .dot { background: #FFB74D; }
+.vt-chip.failed .dot { background: #FF5C6C; }
+
+/* ===== Pencarian ===== */
+.vt-search { min-height: 40px; border-radius: 12px; background: #131318; border: 1px solid rgba(255,255,255,0.06); padding: 0 12px; }
+.vt-search:focus-within { border-color: #6C63FF; }
+
+/* ===== Judul bagian ===== */
+.vt-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #8B8B99; }
+
+/* ===== Kartu wallpaper ===== */
+.wp-card { background: #131318; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
+.wp-card:hover, .wp-card:focus-within { border-color: rgba(255,255,255,0.12); }
+.wp-card.in-use { border: 2px solid #6C63FF; }
+.wp-card.selected { border: 2px solid #6C63FF; }
+.wp-card.missing .wp-thumb { opacity: 0.4; }
+.wp-card .wp-shade { background-image: linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0)); }
+.wp-card .wp-name { font-size: 13px; font-weight: 600; color: #FFFFFF; }
+.wp-card .wp-meta { font-size: 11px; color: rgba(255,255,255,0.72); }
+.wp-card .wp-actions { opacity: 0; transition: opacity 120ms ease-out; }
+.wp-card:hover .wp-actions, .wp-card:focus-within .wp-actions { opacity: 1; }
+.wp-actions button { min-width: 30px; min-height: 30px; padding: 0; border-radius: 999px; background: rgba(0,0,0,0.55); color: #FFFFFF; }
+.wp-actions button:hover { background: rgba(0,0,0,0.75); }
+.wp-badge { background: rgba(0,0,0,0.55); color: #FFFFFF; border-radius: 6px; padding: 0 6px; min-height: 18px; font-size: 10px; font-weight: 700; }
+.wp-badge.res { background: #6C63FF; }
+.wp-badge.missing { background: #FF5C6C; }
+.wp-skeleton { background: #1B1B22; }
+
+/* ===== Bilah bawah ===== */
+.vt-bottombar { background: #0A0A0D; border-top: 1px solid rgba(255,255,255,0.06); padding: 8px 16px; }
+.vt-count { font-size: 12px; color: #8B8B99; }
+
+/* ===== Tombol ===== */
+button.vt-primary { background: #6C63FF; color: #FFFFFF; border-radius: 10px; font-weight: 600; box-shadow: none; }
+button.vt-primary:hover { background: #7F78FF; }
+button.vt-primary:active { background: #5A52E6; }
+button.vt-primary.large { min-height: 48px; border-radius: 14px; font-size: 14px; }
+button.vt-secondary { background: #1B1B22; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; box-shadow: none; }
+button.vt-secondary:hover { background: #24242D; }
+button.vt-flat { background: transparent; box-shadow: none; border-radius: 10px; }
+button.vt-flat:hover { background: #1B1B22; }
+button:focus-visible { outline: 2px solid #6C63FF; outline-offset: 2px; }
+
+/* ===== Pratinjau di layar Edit ===== */
+.vt-preview { border-radius: 12px; background: #000000; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }

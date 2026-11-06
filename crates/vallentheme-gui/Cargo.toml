@@ -5,6 +5,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+build = "build.rs"
 
 [[bin]]
 name = "vallentheme-gui"
@@ -17,3 +18,8 @@ workspace = true
 vallentheme-core.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
+gtk = { package = "gtk4", version = "0.10", features = ["v4_18"] }
+adw = { package = "libadwaita", version = "0.8", features = ["v1_7"] }
+
+[build-dependencies]
+glib-build-tools = "0.21"

@@ -172,3 +172,56 @@ Hasil ukur:
 - Pencarian + sortir 2.000 item: **13,2 ms**.
 - 500 entri: RSS 5.416 KB → 5.528 KB (**+112 KB**).
 - Probe video 320×180 24fps 2 dtk: metadata benar, tanpa audio.
+
+---
+
+## Fase 3 — Kerangka GUI & tema (2026-11-06)
+
+Status: SELESAI (dengan 3 penyimpangan yang dicatat di bawah)
+
+Gate:
+- [x] Aplikasi terbuka dengan tema gelap benar di `GSK_RENDERER=cairo` (diverifikasi lewat screenshot di Xvfb 960×660)
+- [ ] `GSK_RENDERER=ngl` **belum terverifikasi**: Xvfb tidak menyediakan OpenGL. Perlu diuji di sesi nyata.
+- [x] RAM idle **122 MB** (batas 150 MB), CPU idle ~3% saat baru dibuka
+- [x] Instance kedua hanya mengangkat jendela pertama (1 proses, 1 jendela)
+- [x] Tidak ada warning GTK/GLib/Adwaita di terminal pada pemakaian normal
+- [ ] Ikon dari GResource belum lengkap: `data/icons/` masih kosong, jadi ikon memakai tema sistem. Perlu diisi sebelum rilis.
+- [x] Test i18n lulus (semua string UI punya terjemahan Indonesia)
+- [ ] Responsif 420/640/960 px: baru diuji pada 960 px
+- [x] `scripts/check.sh` hijau (93 test)
+
+Yang dibuat:
+- `app.rs` — `adw::Application` (`id.vallentheme.App`), tema paksa gelap,
+  CSS dari GResource, aksi global (`quit`, `preferences`, `about`, `stop`)
+  beserta pintasan `Ctrl+Q` / `Ctrl+,`.
+- `window.rs` — `ToastOverlay` → `NavigationView` → halaman Library,
+  default 960×660, minimum 420×520.
+- `pages.rs` — halaman Library (header + chip status + pencarian dalam
+  `adw::Clamp` 560 + baris kontrol + 3 bagian kartu + bilah bawah),
+  halaman Edit placeholder, halaman kosong.
+- `widgets.rs` — `status_chip` (5 status), `wallpaper_card` (16:9, lencana,
+  nama, meta, penanda dipakai/hilang), `bottom_bar`, `empty_state`.
+- `i18n.rs` — tabel terjemahan + `tr()` + tes otomatis yang memindai seluruh
+  sumber untuk memastikan setiap string punya terjemahan Indonesia.
+- `data/style.css` — token warna/spasi/radius dari `panduan/02` bagian 9.
+- `data/vallentheme.gresource.xml` + `build.rs` (glib-build-tools).
+
+Penyimpangan dari rencana (disetujui secara implisit; dicatat agar transparan):
+1. **i18n memakai tabel Rust, bukan gettext.** Alasan: tidak menambah
+   `msgfmt`/`gettext-sys` ke rantai build mesin 2 core. API `tr()` sengaja
+   identik sehingga bisa ditukar ke gettext tanpa mengubah pemanggil.
+2. **Widget memakai komposisi, bukan subclass GObject.** Alasan: boilerplate
+   `glib::wrapper!` besar dan sulit diverifikasi tanpa sesi grafis interaktif.
+   Properti/sinyal belum dibutuhkan sampai Fase 4–6.
+3. **Struktur berkas** `widgets.rs`/`pages.rs` (bukan folder
+   `widgets/`+`pages/`). Tanggung jawab sama.
+- `adw::AboutDialog` ditunda ke Fase 8 bersama `PreferencesDialog`.
+
+Bug/utang teknis:
+- Kartu belum menampilkan thumbnail (memang placeholder Fase 3).
+- Chip status belum bisa diklik (popover status menyusul Fase 5).
+- Belum ada `adw::Breakpoint` untuk lebar < 640 px.
+
+Hasil ukur:
+- RSS idle 122 MB, CPU idle ~3%.
+- Ukuran biner debug 24 MB.
