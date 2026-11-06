@@ -37,7 +37,7 @@ headerbar { box-shadow: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .vt-search:focus-within { border-color: #6C63FF; }
 
 /* ===== Judul bagian ===== */
-.vt-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #8B8B99; }
+.vt-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #8B8B99; margin-top: 8px; margin-bottom: 2px; }
 
 /* ===== Kartu wallpaper ===== */
 .wp-card { background: #131318; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
@@ -45,14 +45,15 @@ headerbar { box-shadow: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .wp-card.in-use { border: 2px solid #6C63FF; }
 .wp-card.selected { border: 2px solid #6C63FF; }
 .wp-card.missing .wp-thumb { opacity: 0.4; }
-.wp-card .wp-shade { background-image: linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0)); }
+.wp-card .wp-shade { background-image: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0)); }
 .wp-card .wp-name { font-size: 13px; font-weight: 600; color: #FFFFFF; }
 .wp-card .wp-meta { font-size: 11px; color: rgba(255,255,255,0.72); }
 .wp-card .wp-actions { opacity: 0; transition: opacity 120ms ease-out; }
 .wp-card:hover .wp-actions, .wp-card:focus-within .wp-actions { opacity: 1; }
 .wp-actions button { min-width: 30px; min-height: 30px; padding: 0; border-radius: 999px; background: rgba(0,0,0,0.55); color: #FFFFFF; }
 .wp-actions button:hover { background: rgba(0,0,0,0.75); }
-.wp-badge { background: rgba(0,0,0,0.55); color: #FFFFFF; border-radius: 6px; padding: 0 6px; min-height: 18px; font-size: 10px; font-weight: 700; }
+.wp-badge { background: rgba(0,0,0,0.62); color: #FFFFFF; border-radius: 6px; padding: 2px 7px; min-height: 18px; font-size: 10px; font-weight: 700; }
+.wp-badge label { padding: 0; }
 .wp-badge.res { background: #6C63FF; }
 .wp-badge.missing { background: #FF5C6C; }
 .wp-skeleton { background: #1B1B22; }

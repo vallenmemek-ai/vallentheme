@@ -111,18 +111,12 @@ pub fn build(
     banner.set_visible(false);
 
     // ---------- Daftar ----------
-    let flow = gtk::FlowBox::builder()
-        .max_children_per_line(6)
-        .min_children_per_line(1)
-        .column_spacing(16)
-        .row_spacing(16)
-        .homogeneous(true)
-        .selection_mode(gtk::SelectionMode::None)
-        .margin_start(16)
-        .margin_end(16)
-        .margin_top(8)
-        .margin_bottom(16)
-        .build();
+    // Wadah vertikal: satu blok per bagian (VIDEO / FOTO), seperti Fresco.
+    let flow = gtk::Box::new(gtk::Orientation::Vertical, 20);
+    flow.set_margin_start(16);
+    flow.set_margin_end(16);
+    flow.set_margin_top(8);
+    flow.set_margin_bottom(16);
 
     let gulir = gtk::ScrolledWindow::builder()
         .vexpand(true)
@@ -239,7 +233,7 @@ pub fn build(
 fn bilah_bawah(
     state: Shared,
     ui: Rc<RefCell<Ui>>,
-    flow: gtk::FlowBox,
+    flow: gtk::Box,
     nav: adw::NavigationView,
     toast: adw::ToastOverlay,
 ) -> gtk::Widget {
@@ -403,7 +397,7 @@ fn menu_utama() -> gtk::MenuButton {
 fn muat_ulang(
     state: &Shared,
     ui: &Rc<RefCell<Ui>>,
-    flow: &gtk::FlowBox,
+    flow: &gtk::Box,
     banner: &gtk::Label,
     toast: &adw::ToastOverlay,
 ) {
@@ -472,44 +466,67 @@ fn muat_ulang(
     });
 }
 
-/// Isi ulang `FlowBox` dengan kartu.
+/// Isi ulang wadah dengan kartu, dikelompokkan per jenis seperti Fresco.
 fn isi_kartu(
     state: &Shared,
     ui: &Rc<RefCell<Ui>>,
-    flow: &gtk::FlowBox,
+    wadah: &gtk::Box,
     toast: &adw::ToastOverlay,
-    daftar: &[Wallpaper],
+    semua: &[Wallpaper],
 ) {
-    while let Some(anak) = flow.first_child() {
-        flow.remove(&anak);
+    while let Some(anak) = wadah.first_child() {
+        wadah.remove(&anak);
     }
 
-    for w in daftar {
-        let kartu = kartu_wallpaper(state, ui, flow, toast, w);
-        flow.insert(&kartu, -1);
-    }
-
-    if daftar.is_empty() {
+    if semua.is_empty() {
         let kosong = adw::StatusPage::builder()
             .icon_name("image-x-generic-symbolic")
             .title(tr("No wallpapers yet"))
             .description(tr("Add a photo or video to get started"))
             .build();
-        flow.insert(&kosong, -1);
+        kosong.set_vexpand(true);
+        wadah.append(&kosong);
+        return;
+    }
+
+    for (judul, kind) in [("VIDEO", MediaKind::Video), ("FOTO", MediaKind::Image)] {
+        let grup: Vec<&Wallpaper> = semua.iter().filter(|w| w.kind == kind).collect();
+        if grup.is_empty() {
+            continue;
+        }
+
+        let label = gtk::Label::new(Some(judul));
+        label.add_css_class("vt-section-title");
+        label.set_xalign(0.0);
+        wadah.append(&label);
+
+        let baris = gtk::FlowBox::builder()
+            .max_children_per_line(5)
+            .min_children_per_line(1)
+            .column_spacing(16)
+            .row_spacing(16)
+            .homogeneous(true)
+            .selection_mode(gtk::SelectionMode::None)
+            .build();
+
+        for w in grup {
+            baris.insert(&kartu_wallpaper(state, ui, wadah, toast, w), -1);
+        }
+        wadah.append(&baris);
     }
 }
 
-/// Satu kartu wallpaper nyata.
+/// Satu kartu wallpaper: thumbnail penuh, teks menimpa di bawah (gaya Fresco).
 fn kartu_wallpaper(
     state: &Shared,
     ui: &Rc<RefCell<Ui>>,
-    flow: &gtk::FlowBox,
+    wadah: &gtk::Box,
     toast: &adw::ToastOverlay,
     w: &Wallpaper,
 ) -> gtk::Widget {
     let kartu = gtk::Box::new(gtk::Orientation::Vertical, 0);
     kartu.add_css_class("wp-card");
-    kartu.set_size_request(232, 160);
+    kartu.set_size_request(260, 150);
     if w.missing {
         kartu.add_css_class("missing");
     }
@@ -518,7 +535,7 @@ fn kartu_wallpaper(
     gambar.add_css_class("wp-thumb");
     gambar.set_content_fit(gtk::ContentFit::Cover);
     gambar.set_can_shrink(true);
-    gambar.set_size_request(-1, 112);
+    gambar.set_hexpand(true);
     gambar.set_vexpand(true);
     if let Some(thumb) = &w.thumb_path {
         if thumb.is_file() {
@@ -526,6 +543,17 @@ fn kartu_wallpaper(
         }
     }
 
+    let lapis = gtk::Overlay::new();
+    lapis.set_child(Some(&gambar));
+
+    // Gradien gelap di bawah agar teks terbaca di atas gambar apa pun.
+    let shade = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    shade.add_css_class("wp-shade");
+    shade.set_valign(gtk::Align::End);
+    shade.set_size_request(-1, 76);
+    lapis.add_overlay(&shade);
+
+    // Lencana kiri atas: VIDEO + resolusi + HILANG.
     let lencana = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(4)
@@ -549,15 +577,14 @@ fn kartu_wallpaper(
     if w.missing {
         lencana.append(&badge(&tr("Missing"), "missing"));
     }
-
-    let lapis = gtk::Overlay::new();
-    lapis.set_child(Some(&gambar));
     lapis.add_overlay(&lencana);
 
+    // Teks kiri bawah: nama + meta.
     let teks = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    teks.set_halign(gtk::Align::Start);
+    teks.set_valign(gtk::Align::End);
     teks.set_margin_start(10);
     teks.set_margin_end(10);
-    teks.set_margin_top(8);
     teks.set_margin_bottom(10);
 
     let nama = gtk::Label::new(Some(&w.title));
@@ -573,8 +600,9 @@ fn kartu_wallpaper(
 
     teks.append(&nama);
     teks.append(&meta);
+    lapis.add_overlay(&teks);
 
-    // Tombol favorit.
+    // Aksi kanan bawah (muncul saat hover): favorit.
     let fav = gtk::Button::from_icon_name(if w.favorite {
         "starred-symbolic"
     } else {
@@ -585,7 +613,7 @@ fn kartu_wallpaper(
     {
         let state = state.clone();
         let ui = ui.clone();
-        let flow = flow.clone();
+        let wadah = wadah.clone();
         let toast = toast.clone();
         let id = w.id;
         let sekarang = w.favorite;
@@ -602,7 +630,7 @@ fn kartu_wallpaper(
             } else {
                 toast.add_toast(adw::Toast::new(&tr("Failed")));
             }
-            muat_ulang(&state, &ui, &flow, &gtk::Label::new(None), &toast);
+            muat_ulang(&state, &ui, &wadah, &gtk::Label::new(None), &toast);
         });
     }
 
@@ -613,10 +641,9 @@ fn kartu_wallpaper(
     aksi.set_margin_end(8);
     aksi.set_margin_bottom(8);
     aksi.append(&fav);
-
     lapis.add_overlay(&aksi);
+
     kartu.append(&lapis);
-    kartu.append(&teks);
 
     // Klik kartu → toggle pilih atau buka Edit.
     let gestur = gtk::GestureClick::new();
@@ -640,7 +667,6 @@ fn kartu_wallpaper(
                 if let Some(nav) = ui.borrow().nav.clone() {
                     nav.push(&halaman);
                 }
-                tracing::debug!(wallpaper = id.0, "membuka halaman Edit");
             }
         });
     }
@@ -652,6 +678,9 @@ fn kartu_wallpaper(
 
 fn meta_teks(w: &Wallpaper) -> String {
     let ukuran = format!("{:.1} MB", w.size_bytes as f64 / 1_048_576.0);
+    if w.missing {
+        return format!("{} · {ukuran}", tr("Missing"));
+    }
     match (w.width, w.height, w.fps) {
         (Some(l), Some(t), Some(fps)) if w.kind == MediaKind::Video => {
             format!("{l}×{t} · {fps:.0}fps · {ukuran}")
@@ -685,7 +714,7 @@ fn perbarui_hitungan(ui: &Rc<RefCell<Ui>>) {
 fn hapus_terpilih(
     state: &Shared,
     ui: &Rc<RefCell<Ui>>,
-    flow: &gtk::FlowBox,
+    flow: &gtk::Box,
     toast: &adw::ToastOverlay,
 ) {
     let ids = ui.borrow().terpilih.clone();
@@ -713,7 +742,7 @@ fn hapus_terpilih(
 fn impor_berkas(
     state: &Shared,
     ui: &Rc<RefCell<Ui>>,
-    flow: &gtk::FlowBox,
+    flow: &gtk::Box,
     toast: &adw::ToastOverlay,
     paths: Vec<PathBuf>,
 ) {
@@ -741,7 +770,7 @@ fn impor_berkas(
 fn impor_folder(
     state: &Shared,
     ui: &Rc<RefCell<Ui>>,
-    flow: &gtk::FlowBox,
+    flow: &gtk::Box,
     toast: &adw::ToastOverlay,
     folder: PathBuf,
 ) {
@@ -773,7 +802,7 @@ fn impor_folder(
 fn tunggu_impor(
     state: &Shared,
     ui: &Rc<RefCell<Ui>>,
-    flow: &gtk::FlowBox,
+    flow: &gtk::Box,
     toast: &adw::ToastOverlay,
     rx: std::sync::mpsc::Receiver<Result<usize, String>>,
 ) {
