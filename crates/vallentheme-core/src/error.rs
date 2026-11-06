@@ -40,6 +40,10 @@ pub enum Error {
     /// Direktori data pengguna tidak dapat ditentukan.
     #[error("direktori data pengguna tidak tersedia")]
     NoDataDir,
+
+    /// Format atau jenis berkas tidak didukung.
+    #[error("tidak didukung: {0}")]
+    Unsupported(String),
 }
 
 impl Error {
@@ -51,6 +55,7 @@ impl Error {
             Self::ConfigLoad(_) => "VT-CONFIG-002",
             Self::ConfigSave(_) => "VT-CONFIG-003",
             Self::NoDataDir => "VT-CONFIG-004",
+            Self::Unsupported(_) => "VT-UNSUPPORTED-001",
         }
     }
 
@@ -75,6 +80,9 @@ impl Error {
             Self::NoDataDir => "Folder data pengguna tidak ditemukan. \
                  Pastikan variabel HOME atau XDG_DATA_HOME sudah diatur."
                 .to_string(),
+            Self::Unsupported(_) => "Format berkas ini belum didukung vallentheme. \
+                 Gunakan foto (JPG, PNG, WebP, AVIF) atau video (MP4, MKV, WebM, GIF)."
+                .to_string(),
         }
     }
 }
@@ -93,6 +101,7 @@ mod tests {
             Error::ConfigLoad("x".into()),
             Error::ConfigSave("x".into()),
             Error::NoDataDir,
+            Error::Unsupported("uji".into()),
         ];
         for e in &varian {
             let kode = e.code();

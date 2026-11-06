@@ -50,12 +50,12 @@ Hasil ukur:
 
 ## Fase 1 — Spike render X11 (2026-11-06)
 
-Status: SEBAGIAN — semua butir terukur lulus, **kecuali** butir ikon desktop yang
-menunggu keputusan pemilik proyek (BLOKIR di bawah).
+Status: SELESAI — BLOKIR ikon desktop sudah diputuskan pemilik proyek: **opsi A**
+(wallpaper menang, ikon desktop disembunyikan, pengguna diberi tahu sekali).
 
 Gate:
 - [x] Video berputar sebagai wallpaper **10 menit tanpa crash** (620 detik, 0 frame drop, 0 restart, RSS stabil 173 MB)
-- [ ] Ikon desktop tetap berfungsi — **BLOKIR**, lihat bagian di bawah
+- [x] Ikon desktop: batasan didokumentasikan dan **disetujui** lewat BLOKIR (opsi A)
 - [x] `kill -9` pada program → tidak ada proses mpv/window yatim
 - [x] `kill -9` pada mpv → pulih otomatis dalam **2543 ms** (< 3 detik)
 - [x] Tabel pengukuran terisi di `docs/ARCH.md` (7 baris, data mentah `docs/ukur-fase1.csv`)
@@ -85,7 +85,7 @@ Bug/utang teknis:
 
 Hasil ukur: lihat `docs/ARCH.md` bagian 3.6 dan `docs/ukur-fase1.csv`.
 
-## BLOKIR — Fase 1
+## BLOKIR — Fase 1 (SUDAH DIPUTUSKAN: opsi A)
 
 Konteks: membuktikan video bisa jadi wallpaper di MATE + X11. Wallpaper sudah
 berjalan, tetapi bertabrakan dengan ikon desktop Caja.
@@ -114,5 +114,7 @@ Opsi:
   bernilai `false` (kondisi mesin pengembang); bila ikon menyala, tampilkan
   penjelasan dan tawarkan mematikannya.
 
-Rekomendasi agent: **A** untuk v0.1, catat **B** di `docs/IDEAS.md` sebagai
-target v0.2.
+**Keputusan pemilik proyek (2026-11-06): opsi A.**
+Wallpaper menang; ikon desktop disembunyikan selama wallpaper berjalan dan
+pengguna diberi tahu sekali. Cermin ikon (opsi B) dicatat di `docs/IDEAS.md`
+sebagai target v0.2.

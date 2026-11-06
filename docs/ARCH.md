@@ -74,7 +74,7 @@ Dengan compositor aktif (marco), isi window tidak otomatis terisi dari
 dan dilukis ulang setiap menerima `Expose`. Tanpa itu window tampak kosong
 walaupun `xwininfo` menyatakan `IsViewable`.
 
-### 3.3 Konflik dengan Caja (ikon desktop) — **BLOKIR**
+### 3.3 Konflik dengan Caja (ikon desktop) — diputuskan: wallpaper menang
 
 Window desktop Caja berkedalaman **24-bit** (opaque). Karena itu:
 
@@ -91,10 +91,11 @@ Fresco (referensi, v1.1.45) menyelesaikan ini dengan **cermin ikon**
 wallpaper dinaikkan di atas Caja, lalu isi window desktop Caja disalin ke atas
 wallpaper memakai ekstensi X **Composite + Damage** dengan chroma-key.
 
-Keputusan sementara v0.1: naikkan window wallpaper tepat di atas window desktop
-Caja (best-effort, dicek ulang saat tumpukan berubah) dan tampilkan pemberitahuan
-bahwa ikon desktop disembunyikan selama wallpaper berjalan. Cermin ikon diusulkan
-untuk v0.2. Butuh persetujuan pemilik proyek (lihat BLOKIR di `docs/PROGRESS.md`).
+**Keputusan pemilik proyek: wallpaper menang.** v0.1 menaikkan window wallpaper
+tepat di atas window desktop Caja (best-effort, dicek ulang saat tumpukan
+berubah) dan menampilkan pemberitahuan sekali bahwa ikon desktop disembunyikan
+selama wallpaper berjalan. Cermin ikon (Composite/Damage) ditunda ke v0.2 dan
+dicatat di `docs/IDEAS.md`.
 
 Catatan: di mesin pengembang `show-desktop-icons` bernilai `false`, jadi konflik
 ini tidak muncul pada pengujian harian.

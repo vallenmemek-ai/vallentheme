@@ -10,7 +10,10 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+blake3.workspace = true
 directories.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
