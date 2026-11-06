@@ -2,14 +2,16 @@
 
 use gtk::prelude::*;
 
-use crate::pages;
+use crate::library;
+use crate::state::Shared;
 
 /// Bangun jendela utama berisi `NavigationView` dengan halaman Library.
-pub fn bangun(app: &adw::Application) -> adw::ApplicationWindow {
+pub fn bangun(app: &adw::Application, state: Shared) -> adw::ApplicationWindow {
     let navigasi = adw::NavigationView::new();
-    navigasi.push(&pages::library());
-
     let lapis_toast = adw::ToastOverlay::new();
+
+    let halaman = library::build(state, navigasi.clone(), lapis_toast.clone());
+    navigasi.push(&halaman);
     lapis_toast.set_child(Some(&navigasi));
 
     let jendela = adw::ApplicationWindow::builder()

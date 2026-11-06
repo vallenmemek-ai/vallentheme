@@ -40,7 +40,8 @@ pub fn waktu_frame(durasi_ms: Option<i64>) -> f64 {
                 (detik * 0.1).max(1.0)
             }
         }
-        _ => 1.0,
+        // Foto tidak punya durasi: ambil frame pertama tanpa seek.
+        _ => 0.0,
     }
 }
 
@@ -69,13 +70,18 @@ pub fn buat(
 
     // Akhiran harus tetap `.jpg` agar ffmpeg bisa menebak format keluaran.
     let sementara = dir_cache.join(format!("{kunci}.tmp.jpg"));
-    let args: Vec<OsString> = vec![
+    let mut args: Vec<OsString> = vec![
         "-hide_banner".into(),
         "-loglevel".into(),
         "error".into(),
         "-y".into(),
-        "-ss".into(),
-        format!("{waktu_detik:.3}").into(),
+    ];
+    // Foto (tanpa durasi) tidak boleh di-seek; hasilnya kosong.
+    if waktu_detik > 0.0 {
+        args.push("-ss".into());
+        args.push(format!("{waktu_detik:.3}").into());
+    }
+    args.extend([
         "-i".into(),
         sumber.as_os_str().to_os_string(),
         "-frames:v".into(),
@@ -86,7 +92,7 @@ pub fn buat(
         "4".into(),
         "--".into(),
         sementara.as_os_str().to_os_string(),
-    ];
+    ]);
 
     if let Err(err) = jalankan("ffmpeg", &args, TIMEOUT_THUMB) {
         let _ = std::fs::remove_file(&sementara);
@@ -188,8 +194,8 @@ mod tests {
         assert_eq!(waktu_frame(Some(10_000)), 1.0, "10% dari 10 dtk = 1 dtk");
         assert_eq!(waktu_frame(Some(60_000)), 6.0);
         assert_eq!(waktu_frame(Some(500)), 0.0, "durasi < 1 dtk pakai 0");
-        assert_eq!(waktu_frame(None), 1.0, "tanpa durasi pakai 1 dtk");
-        assert_eq!(waktu_frame(Some(0)), 1.0);
+        assert_eq!(waktu_frame(None), 0.0, "tanpa durasi: tanpa seek");
+        assert_eq!(waktu_frame(Some(0)), 0.0);
     }
 
     #[test]

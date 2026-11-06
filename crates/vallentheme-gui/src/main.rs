@@ -6,7 +6,9 @@
 
 mod app;
 mod i18n;
+mod library;
 mod pages;
+mod state;
 mod widgets;
 mod window;
 
@@ -43,7 +45,48 @@ fn main() -> anyhow::Result<()> {
         "vallentheme-gui mulai"
     );
 
-    let aplikasi = app::bangun(paths, config);
+    // Basis data + thread khusus agar I/O tidak menyentuh main loop.
+    let (db, cadangan) =
+        vallentheme_core::db::Db::open_recovering(&paths.db_file).context("membuka library")?;
+    if let Some(cadangan) = cadangan {
+        tracing::warn!(berkas = %cadangan.display(), "library lama dicadangkan");
+    }
+    let actor =
+        vallentheme_core::db_actor::DbActor::spawn(db, 32).context("menyiapkan aktor DB")?;
+
+    // Jalur bantu untuk pengujian/otomasi: impor lalu keluar.
+    let argumen: Vec<String> = std::env::args().collect();
+    if let Some(pos) = argumen.iter().position(|a| a == "--import") {
+        if let Some(path) = argumen.get(pos + 1) {
+            let batal = std::sync::atomic::AtomicBool::new(false);
+            let folder = std::path::PathBuf::from(path);
+            let berkas = vallentheme_core::scan::collect_files(
+                std::slice::from_ref(&folder),
+                &vallentheme_core::scan::ScanOptions::default(),
+                &batal,
+            );
+            let laporan = actor.call(move |db| {
+                let id = db.insert_folder(&folder, true)?;
+                let batal = std::sync::atomic::AtomicBool::new(false);
+                vallentheme_core::scan::import_paths(db, &berkas, Some(id), &batal, |_, _| {})
+            })?;
+            println!(
+                "impor: {} ditambah, {} diperbarui, {} dilewati",
+                laporan.ditambah,
+                laporan.diperbarui,
+                laporan.dilewati.len()
+            );
+            return Ok(());
+        }
+    }
+
+    let shared = std::rc::Rc::new(state::AppState {
+        paths: paths.clone(),
+        db: std::sync::Arc::new(actor),
+        config: std::cell::RefCell::new(config),
+    });
+
+    let aplikasi = app::bangun(shared);
     let kode = aplikasi.run();
     tracing::info!("vallentheme-gui berhenti");
     std::process::exit(i32::from(kode));

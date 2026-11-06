@@ -3,8 +3,7 @@
 use gtk::gio;
 use gtk::prelude::*;
 
-use vallentheme_core::config::Config;
-use vallentheme_core::paths::Paths;
+use crate::state::Shared;
 
 use crate::window;
 
@@ -12,7 +11,7 @@ use crate::window;
 pub const APP_ID: &str = "id.vallentheme.App";
 
 /// Bangun aplikasi GTK siap dijalankan.
-pub fn bangun(paths: Paths, config: Config) -> adw::Application {
+pub fn bangun(state: Shared) -> adw::Application {
     let app = adw::Application::builder()
         .application_id(APP_ID)
         .flags(gio::ApplicationFlags::empty())
@@ -20,20 +19,19 @@ pub fn bangun(paths: Paths, config: Config) -> adw::Application {
 
     app.set_resource_base_path(Some("/id/vallentheme"));
 
-    let paths_startup = paths.clone();
-    let config_startup = config.clone();
+    let state_startup = state.clone();
 
     app.connect_startup(move |app| {
         muat_tema(app);
-        daftar_aksi(app, &paths_startup, &config_startup);
+        daftar_aksi(app, &state_startup);
     });
 
-    app.connect_activate(|app| {
+    app.connect_activate(move |app| {
         if let Some(jendela) = app.active_window() {
             jendela.present();
             return;
         }
-        let jendela = window::bangun(app);
+        let jendela = window::bangun(app, state.clone());
         jendela.present();
     });
 
@@ -64,13 +62,13 @@ fn muat_tema(app: &adw::Application) {
 }
 
 /// Daftarkan aksi global beserta pintasan papan tunas.
-fn daftar_aksi(app: &adw::Application, paths: &Paths, config: &Config) {
+fn daftar_aksi(app: &adw::Application, state: &Shared) {
     let aksi_quit = gio::SimpleAction::new("quit", None);
     let app_quit = app.clone();
     aksi_quit.connect_activate(move |_, _| app_quit.quit());
     app.add_action(&aksi_quit);
 
-    let config_file = paths.config_file.clone();
+    let config_file = state.paths.config_file.clone();
     let aksi_prefs = gio::SimpleAction::new("preferences", None);
     let app_prefs = app.clone();
     aksi_prefs.connect_activate(move |_, _| {
@@ -96,8 +94,6 @@ fn daftar_aksi(app: &adw::Application, paths: &Paths, config: &Config) {
         tracing::info!("aksi Hentikan wallpaper dipanggil (daemon menyusul di Fase 5)");
     });
     app.add_action(&aksi_stop);
-
-    let _ = config;
 
     app.set_accels_for_action("app.quit", &["<Control>q"]);
     app.set_accels_for_action("app.preferences", &["<Control>comma"]);

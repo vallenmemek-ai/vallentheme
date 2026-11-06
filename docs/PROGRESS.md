@@ -225,3 +225,56 @@ Bug/utang teknis:
 Hasil ukur:
 - RSS idle 122 MB, CPU idle ~3%.
 - Ukuran biner debug 24 MB.
+
+---
+
+## Fase 4 — Halaman Library (2026-11-06)
+
+Status: SEBAGIAN — alur inti berjalan; beberapa butir Gate belum lengkap.
+
+Gate:
+- [x] Library memuat data nyata dari SQLite dan menampilkan kartu + thumbnail
+- [x] Impor folder/berkas bekerja (`--import` dan dialog berkas), idempoten
+- [x] Pencarian dengan debounce 150 ms (token AND, sama dengan core)
+- [x] Sortir 7 pilihan tersimpan ke config
+- [x] Favorit (tombol bintang) tersimpan ke DB
+- [x] Hapus dari library = soft-delete (file asli **tidak** disentuh)
+- [x] RSS GUI 128 MB dengan 2 item (batas 250 MB)
+- [ ] Mode Pilih: kerangka ada, tombol hapus massal belum tampil otomatis
+- [ ] "Urungkan" (undo) toast belum diimplementasi; `purge_deleted` belum dijadwalkan
+- [ ] Drag & drop belum ada
+- [ ] Uji 2.000 item di GUI belum dilakukan (baru diukur di core: 13 ms)
+- [x] `scripts/check.sh` hijau (100 test)
+
+Yang dibuat:
+- `state.rs` — `AppState` bersama (`Paths`, `Arc<DbActor>`, `Config`).
+- `library.rs` — halaman Library nyata: header + chip, pencarian debounce,
+  sortir via `SimpleActionGroup`, `FlowBox` kartu, bilah bawah, impor
+  berkas/folder, favorit, hapus lunak, pembuatan thumbnail di latar.
+- `main.rs` — membuka DB dengan pemulihan, menjalankan aktor DB, flag bantu
+  `--import <folder>` untuk pengujian/otomasi.
+
+Keputusan teknis:
+- Semua pekerjaan DB berjalan di thread aktor; hasil dikirim balik ke main loop
+  lewat kanal + `glib::timeout_add_local` (bukan `invoke`) karena `invoke`
+  menuntut `Send` sedangkan widget GTK tidak `Send`.
+- Thumbnail dibuat malas saat daftar dimuat, bukan saat impor, agar impor tetap
+  cepat.
+- `AppState` memakai `Arc<DbActor>` (bukan `Rc`) supaya thread pekerja bisa
+  meminjamnya tanpa membawa widget.
+
+Bug yang ditemukan & diperbaiki:
+- Thumbnail foto kosong karena `-ss 1` diterapkan pada gambar diam. Sekarang
+  `waktu_frame(None) = 0.0` dan `-ss` dilewati bila 0.
+- Hitungan bilah bawah tetap "0" karena label tidak diperbarui setelah muat;
+  sekarang disimpan di `Ui` dan diperbarui setiap kali daftar berubah.
+
+Bug/utang teknis:
+- Belum ada pembatalan impor dari UI (banner progres belum tampil).
+- Belum ada antrean prioritas thumbnail (dibuat berurutan).
+- Klik kartu belum membuka halaman Edit (menunggu Fase 6).
+- Cache LRU tekstur (64) belum ada; `gtk::Picture` memuat sendiri per kartu.
+
+Hasil ukur:
+- RSS GUI 128 MB (2 item, 2 thumbnail).
+- 100 test hijau.
