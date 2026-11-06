@@ -4,9 +4,15 @@
 //! model data, akses berkas menurut XDG, konfigurasi pengguna, dan logging.
 
 pub mod config;
+pub mod db;
+pub mod db_actor;
 pub mod error;
 pub mod logging;
 pub mod model;
 pub mod paths;
+pub mod probe;
+pub mod scan;
+pub mod search;
+pub mod thumb;
 
 pub use error::{Error, Result};

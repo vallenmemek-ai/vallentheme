@@ -118,3 +118,57 @@ Opsi:
 Wallpaper menang; ikon desktop disembunyikan selama wallpaper berjalan dan
 pengguna diberi tahu sekali. Cermin ikon (opsi B) dicatat di `docs/IDEAS.md`
 sebagai target v0.2.
+
+---
+
+## Fase 2 — Core: data, scanner, thumbnail (2026-11-06)
+
+Status: SELESAI
+
+Gate:
+- [x] Semua fungsi publik core punya test (**93 test hijau**)
+- [x] Impor 500 entri: RSS naik hanya **112 KB** (batas 200 MB), tanpa error
+- [x] Berkas rusak/asing ditolak dengan error berkode (`VT-PROBE-002`, `VT-UNSUPPORTED-001`), tanpa panic
+- [x] Mekanisme migrasi teruji: `m001_init` + penolakan skema lebih baru (`VT-DB-003`)
+- [x] DB korup dipulihkan dengan aman (berkas lama dicadangkan `library.db.corrupt-<waktu>`)
+- [x] Pembatalan scan teruji (tidak ada entri setengah jadi)
+- [x] Pencarian + sortir 2.000 item = **13,2 ms** (batas 20 ms)
+
+Yang dibuat (crate `vallentheme-core`):
+- `model` — `WallpaperId`/`FolderId`, `MediaKind` + tabel 14 ekstensi,
+  `FillMode`/`Transition`/`PowerPolicy`, `WallpaperSettings` (`validate()`,
+  `pan_limit()`, JSON toleran), `Wallpaper`, `Folder`, `SortKey`, `Filter`.
+- `db` — SQLite WAL, skema persis panduan, migrasi bernomor, pemeriksaan header
+  SQLite + `quick_check`, pemulihan DB korup dengan cadangan, 20+ method
+  repositori, `ORDER BY` dari daftar tetap (bebas injeksi).
+- `db_actor` — thread basis data + kanal berbatas; semua I/O DB jauh dari GUI.
+- `probe` — ffprobe tanpa shell, timeout 15 dtk, batas keluaran 1 MB,
+  parser `avg_frame_rate` (tangani `0/0`), deteksi GIF/WebP animasi.
+- `thumb` — kunci `blake3(path+mtime+size)`, ffmpeg 480/960 px, tulis atomik,
+  pemangkasan cache berbasis ukuran.
+- `scan` — kedalaman 8, deteksi loop `(dev, inode)`, lewati berkas tersembunyi
+  dan `.git`/`node_modules`/`.cache`/`.local`, pembatalan, impor idempoten.
+- `search` — token AND, normalisasi diakritik, token khusus `video`/`foto`/
+  `fav`/`4k`/`2k`/`fhd`.
+- Fixture: `tests/fixtures/{uji.mp4, uji.jpg, rusak.mp4}` (108 KB total).
+
+Keputusan teknis:
+- Pencarian token dijalankan di Rust setelah prefilter SQL, agar semantik token
+  konsisten; saat query aktif paginasi diterapkan setelah penyaringan.
+- Berkas non-SQLite ditolak lewat pemeriksaan magic header sebelum dibuka, bukan
+  menunggu pesan error SQLite.
+- Thumbnail sementara memakai akhiran `.tmp.jpg` (bukan `.jpg.tmp`) agar ffmpeg
+  bisa menebak format keluaran.
+
+Bug/utang teknis:
+- Pencarian saat query aktif memuat seluruh hasil ke memori sebelum memotong
+  halaman; untuk 2.000 item terukur 13 ms, cukup. Bila library > 50.000 item
+  perlu FTS5.
+- Thumbnail masih dibuat satu per satu; antrean prioritas paralel menyusul di
+  Fase 4 (GUI).
+
+Hasil ukur:
+- 93 test hijau, `scripts/check.sh` hijau.
+- Pencarian + sortir 2.000 item: **13,2 ms**.
+- 500 entri: RSS 5.416 KB → 5.528 KB (**+112 KB**).
+- Probe video 320×180 24fps 2 dtk: metadata benar, tanpa audio.
