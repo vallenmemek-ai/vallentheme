@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 mod app;
+mod edit;
 mod i18n;
 mod library;
 mod pages;

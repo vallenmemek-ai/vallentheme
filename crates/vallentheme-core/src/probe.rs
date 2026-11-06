@@ -3,9 +3,9 @@
 //! Semua proses dijalankan **tanpa shell**, dengan timeout, dan keluaran
 //! dibatasi. Rujukan: `panduan/06-referensi-teknis.md` bagian 5.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
@@ -169,18 +169,32 @@ pub fn probe(path: &Path, timeout: Duration) -> Result<MediaInfo> {
     })
 }
 
-/// Jalankan program tanpa shell dengan timeout; kembalikan stdout sebagai teks.
-pub(crate) fn jalankan(program: &str, args: &[OsString], timeout: Duration) -> Result<String> {
-    let mut anak = Command::new(program)
+/// Bentuk [`Command`] standar vallentheme: **tanpa shell**, stdin tertutup,
+/// stdout dan stderr berupa pipa. Dipakai juga oleh [`crate::download`].
+pub(crate) fn perintah(program: &OsStr, args: &[OsString]) -> Command {
+    let mut perintah = Command::new(program);
+    perintah
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => Error::ProbeToolMissing(program.to_string()),
-            _ => Error::Probe(format!("gagal menjalankan {program}: {e}")),
-        })?;
+        .stderr(Stdio::piped());
+    perintah
+}
+
+/// Jalankan program (tanpa shell) dan kembalikan proses anaknya.
+pub(crate) fn spawn(program: &OsStr, args: &[OsString]) -> Result<Child> {
+    perintah(program, args).spawn().map_err(|e| {
+        let nama = program.to_string_lossy().into_owned();
+        match e.kind() {
+            std::io::ErrorKind::NotFound => Error::ProbeToolMissing(nama),
+            _ => Error::Probe(format!("gagal menjalankan {nama}: {e}")),
+        }
+    })
+}
+
+/// Jalankan program tanpa shell dengan timeout; kembalikan stdout sebagai teks.
+pub(crate) fn jalankan(program: &str, args: &[OsString], timeout: Duration) -> Result<String> {
+    let mut anak = spawn(OsStr::new(program), args)?;
 
     let batas = Instant::now() + timeout;
     loop {

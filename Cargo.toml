@@ -21,6 +21,9 @@ vallentheme-render = { path = "crates/vallentheme-render" }
 anyhow = "1"
 directories = "6"
 libc = "0.2"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt", "macros", "time", "process", "sync", "net", "io-util", "signal"] }
+url = "2"
 blake3 = "1"
 rusqlite = "0.37"
 serde = { version = "1", features = ["derive"] }

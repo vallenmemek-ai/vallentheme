@@ -35,6 +35,39 @@ pub enum RenderError {
         /// Kesalahan dari sistem.
         sumber: std::io::Error,
     },
+
+    /// Pesan IPC mpv tidak bisa dikirim atau dibaca.
+    #[error("komunikasi dengan mpv gagal: {0}")]
+    Ipc(String),
+
+    /// mpv tidak menjawab dalam batas waktu.
+    #[error("mpv tidak menjawab dalam 2 detik")]
+    IpcTimeout,
+
+    /// Soket IPC mpv tertutup (mpv berhenti).
+    #[error("soket mpv terputus; proses mpv kemungkinan berhenti")]
+    IpcDisconnected,
+
+    /// mpv berhenti merespons pemeriksaan kesehatan.
+    #[error("mpv tidak merespons pemeriksaan kesehatan")]
+    MpvHang,
+
+    /// mpv gagal berulang kali sehingga pengawasan dihentikan.
+    #[error("mpv gagal berulang kali: {0}")]
+    MpvFailed(String),
+
+    /// Setter wallpaper desktop gagal.
+    #[error("gagal mengubah wallpaper {desktop}: {pesan}")]
+    Setter {
+        /// Nama desktop yang dideteksi.
+        desktop: String,
+        /// Keterangan kegagalan.
+        pesan: String,
+    },
+
+    /// Desktop tidak dikenali sehingga setter tidak tersedia.
+    #[error("desktop tidak dikenali; pengaturan wallpaper tidak didukung")]
+    DesktopUnknown,
 }
 
 impl RenderError {
@@ -46,6 +79,13 @@ impl RenderError {
             Self::NotX11 => "VT-X11-003",
             Self::NoMonitors => "VT-X11-004",
             Self::Spawn { .. } => "VT-MPV-001",
+            Self::Ipc(_) => "VT-MPV-002",
+            Self::IpcTimeout => "VT-MPV-003",
+            Self::IpcDisconnected => "VT-MPV-004",
+            Self::MpvHang => "VT-MPV-005",
+            Self::MpvFailed(_) => "VT-MPV-006",
+            Self::Setter { .. } => "VT-DESKTOP-001",
+            Self::DesktopUnknown => "VT-DESKTOP-002",
         }
     }
 }

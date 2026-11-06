@@ -15,8 +15,9 @@ thiserror.workspace = true
 tracing.workspace = true
 x11rb.workspace = true
 libc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
-serde_json.workspace = true
 tempfile.workspace = true

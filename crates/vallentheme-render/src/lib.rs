@@ -6,7 +6,9 @@
 //! Rujukan: `panduan/01-arsitektur.md` bagian 2, `panduan/06` bagian 2–3.
 
 pub mod error;
+pub mod mpv;
 pub mod process;
+pub mod setter;
 pub mod x11;
 
 pub use error::{RenderError, Result};

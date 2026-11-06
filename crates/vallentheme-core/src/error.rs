@@ -68,6 +68,18 @@ pub enum Error {
     /// Pembuatan thumbnail gagal.
     #[error("gagal membuat thumbnail: {0}")]
     Thumb(String),
+
+    /// Tautan yang dimasukkan pengguna tidak lolos validasi.
+    #[error("tautan tidak valid: {0}")]
+    UrlInvalid(String),
+
+    /// Unduhan dari tautan gagal.
+    #[error("gagal mengunduh: {0}")]
+    Download(String),
+
+    /// Program `yt-dlp` tidak terpasang.
+    #[error("{0} belum terpasang")]
+    DownloadToolMissing(String),
 }
 
 impl Error {
@@ -86,6 +98,9 @@ impl Error {
             Self::ProbeToolMissing(_) => "VT-PROBE-001",
             Self::Probe(_) => "VT-PROBE-002",
             Self::Thumb(_) => "VT-THUMB-001",
+            Self::UrlInvalid(_) => "VT-URL-001",
+            Self::Download(_) => "VT-DL-001",
+            Self::DownloadToolMissing(_) => "VT-DL-002",
         }
     }
 
@@ -129,6 +144,16 @@ impl Error {
             Self::Thumb(_) => "Pratinjau tidak bisa dibuat. Wallpaper tetap bisa dipakai, \
                  hanya gambarnya tidak muncul di daftar."
                 .to_string(),
+            Self::UrlInvalid(_) => "Tautan ini tidak bisa dipakai. Tempel tautan video biasa \
+                 yang diawali https:// atau http://, tanpa spasi dan tanpa karakter aneh."
+                .to_string(),
+            Self::Download(_) => "Unduhan tidak selesai. Periksa koneksi internet, pastikan \
+                 video bisa diakses tanpa login, dan coba lagi."
+                .to_string(),
+            Self::DownloadToolMissing(program) => format!(
+                "{program} belum terpasang, jadi vallentheme belum bisa mengunduh dari \
+                 tautan. Pasang dengan: pipx install yt-dlp"
+            ),
         }
     }
 }
@@ -153,6 +178,9 @@ mod tests {
             Error::Probe("x".into()),
             Error::ProbeToolMissing("ffprobe".into()),
             Error::Thumb("x".into()),
+            Error::UrlInvalid("x".into()),
+            Error::Download("x".into()),
+            Error::DownloadToolMissing("yt-dlp".into()),
         ]
     }
 

@@ -278,3 +278,95 @@ Bug/utang teknis:
 Hasil ukur:
 - RSS GUI 128 MB (2 item, 2 thumbnail).
 - 100 test hijau.
+
+---
+
+## Fase 5 — Daemon produksi (2026-11-06)
+
+Status: SEBAGIAN — rantai inti terbukti bekerja, beberapa butir Gate belum.
+
+Gate:
+- [x] D-Bus `id.vallentheme.Daemon` hidup dengan antarmuka `id.vallentheme.Daemon1`
+      lengkap (Apply/Stop/Pause/Resume/GetStatus/Quit + stub Update/SetPerformance/
+      GetDecisionLog/GetDeviceProfile, sinyal StateChanged/Error, properti Version/State/Session)
+- [x] `Apply` dengan video → `ok:true`, state `running`, **mpv benar-benar berjalan**
+      (`time-pos` maju, `vo-configured=true`, 1920 px, 24 fps) dan isi window desktop
+      terverifikasi berisi frame video (color bars terukur)
+- [x] `Stop` menghentikan mpv dan menghancurkan window (0 proses, 0 window sisa)
+- [x] `Quit` keluar bersih, nama D-Bus hilang dari bus
+- [x] Argumen mpv sesuai panduan (panscan/keepaspect per FillMode, `--no-audio` saat bisu,
+      IPC socket di `$XDG_RUNTIME_DIR/vallentheme/mpv-<monitor>.sock`)
+- [ ] `kill -9` mpv → pulih < 3 detik: logika supervisor + backoff teruji unit,
+      **belum diuji end-to-end** dengan mpv sungguhan
+- [ ] Restore saat login (`--restore`) belum diuji
+- [ ] Soak 4 jam belum dijalankan
+- [ ] Multi-monitor: `Apply` monitor `all` masih memilih satu monitor utama
+- [ ] Berkas aktivasi D-Bus `data/id.vallentheme.Daemon.service` belum dibuat
+- [x] `scripts/check.sh` hijau
+
+Yang dibuat (oleh subagent, sudah diverifikasi ulang):
+- `render::mpv` — `args.rs` (build_args + test semua FillMode), `ipc.rs`
+  (klien JSON-per-baris, request_id, timeout), `supervisor.rs` (health check 5 dtk,
+  backoff 1/2/4/8/16/30 dtk, menyerah setelah 5 kegagalan/2 menit)
+- `render::setter` — setter foto MATE/GNOME/Cinnamon/XFCE via gsettings/xfconf-query
+  tanpa shell, catat nilai awal + `restore()`
+- `daemon::state` — `DaemonState` + `ApplyRequest`, simpan atomik, cadangan berkas rusak
+- `daemon::dbus` — layanan zbus lengkap dengan validasi berkode
+- `daemon::main` — flag `--restore/--install-autostart/--remove-autostart/--daemonize`,
+  `flock` instance tunggal, SIGTERM/SIGINT, pembersihan mpv+desktop+socket
+
+Catatan verifikasi: klaim subagent saya periksa sendiri — `busctl introspect` menunjukkan
+semua metode ada, `GetStatus` mengembalikan JSON sah, dan mpv terbukti memutar video.
+
+---
+
+## Fase 6 — Halaman Edit (2026-11-06)
+
+Status: SEBAGIAN
+
+Gate:
+- [x] Halaman Edit terbangun: pratinjau 16:9, ComboRow metode pengisian, ComboRow
+      transisi, SwitchRow bisu, slider volume, ComboRow hemat daya, Putar 90°,
+      Setel ulang pangkas
+- [x] Penyimpanan otomatis `settings_json` (debounce 400 ms)
+- [x] Opsi menyesuaikan jenis: foto menyembunyikan bisu/volume/daya
+- [ ] Tombol "Jadikan wallpaper" masih **nonaktif** (tooltip "Segera hadir");
+      penyambungan ke `Apply` daemon belum dikerjakan
+- [ ] Pratinjau belum mensimulasikan fill/rotasi/zoom/pan
+- [ ] Geser/zoom (pan & crop) belum ada
+- [ ] `Update` di daemon masih stub
+
+---
+
+## Fase 7 — Sistem kinerja (bagian core)
+
+Status: SEBAGIAN — bagian fungsi murni selesai, penerapan di daemon belum.
+
+Gate:
+- [x] `perf::policy::decide` murni + 12 test tabel skenario (turun, naik, dwell,
+      osilasi, lonjakan sesaat, mode Original tidak pernah turun, Custom tidak beradaptasi)
+- [x] `perf::profile::detect` membaca /proc dan /sys, toleran bila tidak ada
+- [x] `perf::metrics` pembaca /proc/stat, /proc/meminfo, /proc/<pid>/stat
+- [ ] Pemantau runtime di daemon (interval 2 dtk) belum ada
+- [ ] Pemetaan Level → opsi mpv (`--vf=fps=`, `scale=-2:`, `pause=yes`) belum ada
+- [ ] Aturan jeda otomatis (fullscreen/baterai/kunci layar) belum disambungkan
+- [ ] Halaman Kinerja di GUI belum ada
+
+---
+
+## Fase 8 — Fitur tambahan (bagian core)
+
+Status: SEBAGIAN — fondasi selesai, UI belum.
+
+Gate:
+- [x] `url::validate` — hanya http/https, ≤2048, tolak `-` di awal dan karakter shell
+      berbahaya (`; | $ \` < > " ' \ { } ^` spasi); `& ? = % #` tetap sah
+- [x] `download::build_ytdlp_args` sesuai panduan/06 §6 + `DownloadJob` (progres per
+      baris, pembatalan, yt-dlp palsu diuji)
+- [ ] Dialog "Dari tautan" di GUI belum ada
+- [ ] Folder terpantau (inotify) belum ada
+- [ ] Halaman Pengaturan lengkap belum ada
+- [ ] Notifikasi sistem belum ada
+- [ ] Pembatalan unduhan memakai SIGKILL (SIGTERM butuh libc di core); `.part` belum dibersihkan otomatis
+
+Hasil ukur keseluruhan: **182 test hijau**, `scripts/check.sh` hijau.
