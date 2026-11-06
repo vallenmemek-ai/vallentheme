@@ -370,3 +370,34 @@ Gate:
 - [ ] Pembatalan unduhan memakai SIGKILL (SIGTERM butuh libc di core); `.part` belum dibersihkan otomatis
 
 Hasil ukur keseluruhan: **182 test hijau**, `scripts/check.sh` hijau.
+
+---
+
+## Integrasi GUI ↔ Daemon (pelengkap Fase 5/6)
+
+Status: SELESAI — **alur pengguna penuh terbukti bekerja**
+
+Bukti uji end-to-end (screenshot + log + D-Bus):
+1. Daemon dijalankan, D-Bus `id.vallentheme.Daemon` siap.
+2. GUI dibuka, library menampilkan 2 kartu berthumbnail.
+3. Klik kartu → **halaman Edit terbuka** (pratinjau + Metode pengisian/Transisi/
+   Bisu/Volume/Hemat daya + tombol "Jadikan wallpaper").
+4. Klik "Jadikan wallpaper" → mpv berjalan, daemon melaporkan
+   `{"state":"running","path":"/tmp/uji-library/gunung.mp4","wallpaper_id":1}`.
+5. `Stop` + `Quit` → 0 mpv, 0 daemon, 0 window sisa.
+
+Yang dibuat:
+- `gui::dbus_client` — klien zbus blocking (`apply`, `status`, `stop`, `quit`,
+  `tersedia`); selalu dipanggil dari thread pekerja, koneksi singkat per panggilan.
+- `gui::edit` — `permintaan_apply()` menyusun `ApplyRequest` JSON sesuai
+  `panduan/06` bagian 1; tombol terapkan mengirim ke daemon lewat thread +
+  polling `glib::timeout_add_local` (bukan `invoke`, karena widget GTK tidak `Send`).
+- `gui::library` — klik kartu membuka halaman Edit (`NavigationView::push`).
+
+Gate yang kini lulus:
+- [x] Klik kartu membuka halaman Edit dengan data nyata
+- [x] Tombol "Jadikan wallpaper" benar-benar menerapkan wallpaper video
+- [x] Tidak ada proses/window yatim setelah Stop/Quit
+
+Sisa pekerjaan: chip status belum ikut hidup (belum polling `GetStatus`),
+`Update` masih stub, dan pratinjau belum mensimulasikan fill/rotasi/zoom.

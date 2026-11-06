@@ -128,8 +128,28 @@ pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::Navi
     let tombol_terapkan = gtk::Button::with_label(&tr("Set as wallpaper"));
     tombol_terapkan.add_css_class("vt-primary");
     tombol_terapkan.add_css_class("large");
-    tombol_terapkan.set_sensitive(false);
-    tombol_terapkan.set_tooltip_text(Some(&tr("Coming soon")));
+    tombol_terapkan.set_sensitive(true);
+    tombol_terapkan.set_tooltip_text(Some(&tr("Set as wallpaper")));
+    {
+        let nilai = nilai.clone();
+        let toast = toast.clone();
+        let tombol = tombol_terapkan.clone();
+        let id_wallpaper = w.id.0;
+        let path = w.path.clone();
+        let kind = w.kind;
+        tombol_terapkan.connect_clicked(move |_| {
+            let s = nilai.borrow().clone();
+            let permintaan = permintaan_apply(id_wallpaper, &path, kind, &s);
+            tombol.set_sensitive(false);
+            let toast = toast.clone();
+            let tombol2 = tombol.clone();
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let _ = tx.send(crate::dbus_client::apply(&permintaan));
+            });
+            tunggu_apply(rx, toast, tombol2);
+        });
+    }
 
     let kolom = gtk::Box::new(gtk::Orientation::Vertical, 24);
     kolom.set_size_request(320, -1);
@@ -281,6 +301,76 @@ pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::Navi
         .tag("edit")
         .child(&toolbar)
         .build()
+}
+
+/// Susun `ApplyRequest` JSON sesuai `panduan/06` bagian 1.
+pub fn permintaan_apply(
+    wallpaper_id: i64,
+    path: &std::path::Path,
+    kind: MediaKind,
+    s: &vallentheme_core::model::WallpaperSettings,
+) -> String {
+    let jenis = match kind {
+        MediaKind::Video => "video",
+        MediaKind::Image => "image",
+    };
+    let transisi = match s.transition {
+        Transition::None => "none",
+        Transition::Fade => "fade",
+    };
+    let daya = match s.power {
+        PowerPolicy::Default => "default",
+        PowerPolicy::Always => "always",
+        PowerPolicy::PauseFullscreen => "pause_fullscreen",
+        PowerPolicy::PauseBattery => "pause_battery",
+        PowerPolicy::AlwaysSaver => "always_saver",
+    };
+    let nilai = serde_json::json!({
+        "v": 1,
+        "wallpaper_id": wallpaper_id,
+        "path": path.to_string_lossy(),
+        "kind": jenis,
+        "monitor": s.monitor.clone().unwrap_or_else(|| "all".to_string()),
+        "settings": {
+            "fill": s.fill.as_str(),
+            "rotation": s.rotation,
+            "zoom": s.zoom,
+            "pan_x": s.pan_x,
+            "pan_y": s.pan_y,
+            "transition": transisi,
+            "mute": s.mute,
+            "volume": s.volume,
+            "power": daya,
+        }
+    });
+    nilai.to_string()
+}
+
+/// Tunggu hasil `Apply` tanpa memblokir main loop.
+fn tunggu_apply(
+    rx: std::sync::mpsc::Receiver<Result<String, String>>,
+    toast: adw::ToastOverlay,
+    tombol: gtk::Button,
+) {
+    let rx = Rc::new(RefCell::new(rx));
+    gtk::glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
+        let hasil = rx.borrow().try_recv();
+        match hasil {
+            Ok(Ok(_json)) => {
+                tombol.set_sensitive(true);
+                toast.add_toast(adw::Toast::new(&tr("Set as wallpaper")));
+                gtk::glib::ControlFlow::Break
+            }
+            Ok(Err(pesan)) => {
+                tracing::error!(error = %pesan, "Apply gagal");
+                tombol.set_sensitive(true);
+                toast.add_toast(adw::Toast::new(&tr("Failed")));
+                gtk::glib::ControlFlow::Break
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => gtk::glib::ControlFlow::Break,
+        }
+    });
 }
 
 /// Indeks ComboRow untuk [`FillMode`].

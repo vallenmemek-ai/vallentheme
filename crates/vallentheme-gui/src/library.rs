@@ -22,6 +22,7 @@ struct Ui {
     terpilih: Vec<WallpaperId>,
     jumlah_total: u32,
     hitung: Option<gtk::Label>,
+    nav: Option<adw::NavigationView>,
     debounce: Option<gtk::glib::SourceId>,
 }
 
@@ -46,8 +47,11 @@ pub fn build(
         terpilih: Vec::new(),
         jumlah_total: 0,
         hitung: None,
+        nav: None,
         debounce: None,
     }));
+
+    ui.borrow_mut().nav = Some(nav.clone());
 
     // ---------- Header ----------
     let header = adw::HeaderBar::new();
@@ -620,6 +624,7 @@ fn kartu_wallpaper(
         let state = state.clone();
         let ui = ui.clone();
         let id = w.id;
+        let kartu_w = w.clone();
         let toast = toast.clone();
         gestur.connect_released(move |_, _, _, _| {
             let mode = ui.borrow().mode_pilih;
@@ -631,9 +636,11 @@ fn kartu_wallpaper(
                     u.terpilih.push(id);
                 }
             } else {
-                tracing::info!(wallpaper = id.0, "membuka halaman Edit (menyusul Fase 6)");
-                let _ = &toast;
-                let _ = &state;
+                let halaman = crate::edit::build(state.clone(), toast.clone(), kartu_w.clone());
+                if let Some(nav) = ui.borrow().nav.clone() {
+                    nav.push(&halaman);
+                }
+                tracing::debug!(wallpaper = id.0, "membuka halaman Edit");
             }
         });
     }
