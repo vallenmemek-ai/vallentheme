@@ -1,0 +1,14 @@
+/target
+**/*.rs.bk
+
+# Database & state runtime
+*.db
+*.db-wal
+*.db-shm
+*.corrupt-*
+
+# Artefak ukur
+soak-*.csv
+
+# Lingkungan
+.env

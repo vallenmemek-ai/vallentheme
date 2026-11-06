@@ -1,0 +1,20 @@
+[package]
+name = "vallentheme-daemon"
+description = "Layanan latar vallentheme: menerapkan dan merawat wallpaper."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "vallentheme-daemon"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+vallentheme-core.workspace = true
+vallentheme-render.workspace = true
+anyhow.workspace = true
+tracing.workspace = true

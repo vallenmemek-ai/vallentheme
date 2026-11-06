@@ -1,0 +1,53 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vallentheme-core",
+    "crates/vallentheme-render",
+    "crates/vallentheme-daemon",
+    "crates/vallentheme-gui",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "LicenseRef-TBD"
+rust-version = "1.80"
+repository = "https://example.invalid/vallentheme"
+
+[workspace.dependencies]
+vallentheme-core = { path = "crates/vallentheme-core" }
+vallentheme-render = { path = "crates/vallentheme-render" }
+
+anyhow = "1"
+directories = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+toml = "0.8"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+tempfile = "3"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "warn"
+dbg_macro = "deny"
+
+[profile.dev]
+opt-level = 1
+debug = 1
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = true
+panic = "unwind"

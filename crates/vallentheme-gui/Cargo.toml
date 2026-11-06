@@ -1,0 +1,19 @@
+[package]
+name = "vallentheme-gui"
+description = "Antarmuka GTK4/libadwaita vallentheme."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "vallentheme-gui"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+vallentheme-core.workspace = true
+anyhow.workspace = true
+tracing.workspace = true

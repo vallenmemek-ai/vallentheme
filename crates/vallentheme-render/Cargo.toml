@@ -1,0 +1,15 @@
+[package]
+name = "vallentheme-render"
+description = "Backend render vallentheme: window X11 dan pengawasan proses mpv."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+vallentheme-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true

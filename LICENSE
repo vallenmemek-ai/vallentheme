@@ -1,0 +1,13 @@
+Lisensi vallentheme BELUM DITENTUKAN.
+
+Berkas ini adalah penanda sementara. Keputusan lisensi diambil oleh pemilik
+proyek sebelum rilis v0.1.0 (lihat `fase/FASE-9-pengerasan-rilis.md` bagian 9.5).
+
+Pertimbangan yang perlu diputuskan:
+- mpv dipanggil sebagai proses terpisah (bukan menautkan libmpv), sehingga
+  keterkaitan lisensi GPL/LGPL-nya lebih longgar tetapi tetap harus dicatat.
+- GTK4 dan libadwaita berlisensi LGPL-2.1+.
+- Ikon Adwaita: LGPL-3.0 / CC-BY-SA-3.0.
+- Lisensi crate Rust pihak ketiga perlu diaudit dengan `cargo deny`.
+
+Kode di repositori ini belum boleh didistribusikan sampai lisensi ditetapkan.
