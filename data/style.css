@@ -40,10 +40,11 @@ headerbar { box-shadow: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .vt-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #8B8B99; margin-top: 8px; margin-bottom: 2px; }
 
 /* ===== Kartu wallpaper ===== */
-.wp-card { background: #131318; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
+.wp-card { background: #131318; border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); }
 .wp-card:hover, .wp-card:focus-within { border-color: rgba(255,255,255,0.12); }
-.wp-card.in-use { border: 2px solid #6C63FF; }
+.wp-card.in-use { border: 2px solid #3DDC97; }
 .wp-card.selected { border: 2px solid #6C63FF; }
+.wp-badge.in-use { background: #3DDC97; color: #06120C; }
 .wp-card.missing .wp-thumb { opacity: 0.4; }
 .wp-card .wp-shade { background-image: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0)); }
 .wp-card .wp-name { font-size: 13px; font-weight: 600; color: #FFFFFF; }
@@ -74,4 +75,4 @@ button.vt-flat:hover { background: #1B1B22; }
 button:focus-visible { outline: 2px solid #6C63FF; outline-offset: 2px; }
 
 /* ===== Pratinjau di layar Edit ===== */
-.vt-preview { border-radius: 12px; background: #000000; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
+.vt-preview { border-radius: 12px; background: #000000; border: 1px solid rgba(255,255,255,0.06); }

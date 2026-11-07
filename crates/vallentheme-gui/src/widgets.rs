@@ -45,15 +45,45 @@ impl Status {
     }
 }
 
+/// Chip status untuk header bar yang bisa diperbarui tanpa dibangun ulang.
+#[derive(Clone)]
+pub struct StatusChip {
+    kotak: gtk::Box,
+    label: gtk::Label,
+}
+
+impl StatusChip {
+    /// Widget yang dipasang ke header bar.
+    pub fn widget(&self) -> &gtk::Box {
+        &self.kotak
+    }
+
+    /// Ganti status tanpa mengganti widget.
+    pub fn set(&self, status: Status) {
+        for s in [
+            Status::Berjalan,
+            Status::TidakBerjalan,
+            Status::Dijeda,
+            Status::Terbatas,
+            Status::Gagal,
+        ] {
+            self.kotak.remove_css_class(s.kelas());
+        }
+        self.kotak.add_css_class(status.kelas());
+        let teks = tr(status.label());
+        self.label.set_text(&teks);
+        self.kotak.set_tooltip_text(Some(&teks));
+    }
+}
+
 /// Chip status untuk header bar.
-pub fn status_chip(status: Status) -> gtk::Widget {
+pub fn status_chip(status: Status) -> StatusChip {
     let kotak = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .spacing(8)
         .valign(gtk::Align::Center)
         .build();
     kotak.add_css_class("vt-chip");
-    kotak.add_css_class(status.kelas());
 
     let titik = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     titik.add_css_class("dot");
@@ -64,8 +94,34 @@ pub fn status_chip(status: Status) -> gtk::Widget {
 
     kotak.append(&titik);
     kotak.append(&label);
-    kotak.set_tooltip_text(Some(&tr(status.label())));
-    kotak.upcast()
+    let chip = StatusChip { kotak, label };
+    chip.set(status);
+    chip
+}
+
+/// Urai `status_json` daemon menjadi status chip dan daftar wallpaper yang dipakai.
+pub fn urai_status(json: &str) -> (Status, Vec<i64>) {
+    let Ok(nilai) = serde_json::from_str::<serde_json::Value>(json) else {
+        return (Status::TidakBerjalan, Vec::new());
+    };
+    let status = match nilai.get("state").and_then(|v| v.as_str()) {
+        Some("running") => Status::Berjalan,
+        Some("paused") => Status::Dijeda,
+        Some("failed") => Status::Gagal,
+        Some("degraded") => Status::Terbatas,
+        _ => Status::TidakBerjalan,
+    };
+    let dipakai = nilai
+        .get("monitors")
+        .and_then(|v| v.as_array())
+        .map(|monitor| {
+            monitor
+                .iter()
+                .filter_map(|m| m.get("wallpaper_id").and_then(|i| i.as_i64()))
+                .collect()
+        })
+        .unwrap_or_default();
+    (status, dipakai)
 }
 
 /// Data kartu contoh untuk Fase 3 (belum tersambung ke basis data).
@@ -261,6 +317,24 @@ mod tests {
         let n = kelas.len();
         kelas.dedup();
         assert_eq!(kelas.len(), n);
+    }
+
+    #[test]
+    fn urai_status_memahami_keadaan_dan_monitor() {
+        let (s, ids) = urai_status(
+            r#"{"v":1,"state":"running","monitors":[{"wallpaper_id":2},{"wallpaper_id":3}]}"#,
+        );
+        assert_eq!(s, Status::Berjalan);
+        assert_eq!(ids, vec![2, 3]);
+
+        let (s, ids) = urai_status(r#"{"v":1,"state":"idle","monitors":[]}"#);
+        assert_eq!(s, Status::TidakBerjalan);
+        assert!(ids.is_empty());
+
+        // JSON rusak tidak boleh panic dan dianggap tidak berjalan.
+        let (s, ids) = urai_status("bukan json");
+        assert_eq!(s, Status::TidakBerjalan);
+        assert!(ids.is_empty());
     }
 
     #[test]

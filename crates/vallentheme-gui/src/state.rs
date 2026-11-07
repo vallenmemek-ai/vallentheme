@@ -15,6 +15,10 @@ pub struct AppState {
     pub db: std::sync::Arc<DbActor>,
     /// Konfigurasi pengguna (bisa berubah saat berjalan).
     pub config: RefCell<Config>,
+    /// Navigasi jendela utama, dipakai aksi global untuk membuka halaman.
+    pub nav: RefCell<Option<adw::NavigationView>>,
+    /// Lapisan toast jendela utama, dipakai aksi global untuk umpan balik.
+    pub toast: RefCell<Option<adw::ToastOverlay>>,
 }
 
 /// Alias yang dipakai di seluruh kode GUI.

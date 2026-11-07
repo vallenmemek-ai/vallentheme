@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=vallentheme
+GenericName=Wallpaper
+Comment=Wallpaper video dan foto untuk desktop Linux
+Comment[en]=Video and photo wallpapers for the Linux desktop
+Exec=@BIN@
+Icon=vallentheme
+Terminal=false
+Categories=Graphics;
+Keywords=wallpaper;wallpaper video;wallpaper hidup;live wallpaper;desktop;background;
+StartupNotify=true
+StartupWMClass=vallentheme

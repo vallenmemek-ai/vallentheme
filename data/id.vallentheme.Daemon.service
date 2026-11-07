@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=id.vallentheme.Daemon
+Exec=@BINDIR@/vallentheme-daemon

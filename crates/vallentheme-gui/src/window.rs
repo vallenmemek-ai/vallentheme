@@ -9,6 +9,8 @@ use crate::state::Shared;
 pub fn bangun(app: &adw::Application, state: Shared) -> adw::ApplicationWindow {
     let navigasi = adw::NavigationView::new();
     let lapis_toast = adw::ToastOverlay::new();
+    *state.nav.borrow_mut() = Some(navigasi.clone());
+    *state.toast.borrow_mut() = Some(lapis_toast.clone());
 
     let halaman = library::build(state, navigasi.clone(), lapis_toast.clone());
     navigasi.push(&halaman);
@@ -24,5 +26,8 @@ pub fn bangun(app: &adw::Application, state: Shared) -> adw::ApplicationWindow {
 
     // Ukuran minimum dari panduan desain.
     jendela.set_size_request(420, 520);
+    // Ikon diambil dari tema ikon; `scripts/install-app.sh` memasangnya
+    // sebagai `vallentheme`. Bila belum terpasang, GTK memakai ikon bawaan.
+    jendela.set_icon_name(Some("vallentheme"));
     jendela
 }

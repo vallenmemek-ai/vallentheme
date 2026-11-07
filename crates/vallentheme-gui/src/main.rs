@@ -10,6 +10,7 @@ mod edit;
 mod i18n;
 mod library;
 mod pages;
+mod settings;
 mod state;
 mod widgets;
 mod window;
@@ -86,6 +87,8 @@ fn main() -> anyhow::Result<()> {
         paths: paths.clone(),
         db: std::sync::Arc::new(actor),
         config: std::cell::RefCell::new(config),
+        nav: std::cell::RefCell::new(None),
+        toast: std::cell::RefCell::new(None),
     });
 
     let aplikasi = app::bangun(shared);

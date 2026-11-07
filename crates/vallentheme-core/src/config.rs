@@ -276,8 +276,8 @@ const BATTERY_MIN: u32 = 5;
 const BATTERY_MAX: u32 = 90;
 const CACHE_MIN_MB: u32 = 64;
 const CACHE_MAX_MB: u32 = 102_400;
-const FPS_ALLOWED: [u32; 4] = [0, 24, 30, 60];
-const HEIGHT_ALLOWED: [u32; 4] = [0, 720, 1080, 1440];
+const FPS_ALLOWED: [u32; 5] = [0, 24, 30, 60, 144];
+const HEIGHT_ALLOWED: [u32; 7] = [0, 720, 1080, 1440, 2160, 2880, 3840];
 const OPTIMIZE_HEIGHT_ALLOWED: [u32; 2] = [720, 1080];
 
 impl Config {

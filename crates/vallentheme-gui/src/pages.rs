@@ -11,7 +11,7 @@ use crate::widgets::{bottom_bar, empty_state, status_chip, wallpaper_card, Kartu
 /// Bangun halaman Library (masih data contoh).
 pub fn library() -> adw::NavigationPage {
     let header = adw::HeaderBar::new();
-    header.pack_start(&status_chip(Status::TidakBerjalan));
+    header.pack_start(status_chip(Status::TidakBerjalan).widget());
 
     let judul = gtk::Label::new(Some("vallentheme"));
     judul.add_css_class("vt-header-title");

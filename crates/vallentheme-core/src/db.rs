@@ -157,28 +157,26 @@ fn periksa_header(path: &Path) -> Result<()> {
 impl Db {
     /// Buka basis data pada `path`, siapkan pragma, lalu jalankan migrasi.
     pub fn open(path: &Path) -> Result<Self> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|source| Error::Io {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-        periksa_header(path)?;
-        let conn = Connection::open(path).map_err(db_err)?;
-        Self::siapkan(conn)
+        Self::buka(path, false)
     }
 
     /// Basis data di memori, untuk pengujian.
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory().map_err(db_err)?;
-        Self::siapkan(conn)
+        Self::siapkan(conn, false)
     }
 
     /// Buka basis data; bila korup, cadangkan lalu buat baru.
     ///
     /// Mengembalikan `(db, Some(path_cadangan))` bila pemulihan terjadi.
     pub fn open_recovering(path: &Path) -> Result<(Self, Option<PathBuf>)> {
-        match Self::open(path) {
+        // WAL yang tersisa berarti proses sebelumnya berhenti tanpa menutup
+        // basis data; hanya kasus itu yang perlu `quick_check` (baca seluruh
+        // berkas). Pembukaan normal cukup memeriksa header.
+        let wal_tersisa = PathBuf::from(format!("{}-wal", path.display()));
+        let periksa = wal_tersisa.metadata().map(|m| m.len() > 0).unwrap_or(false);
+
+        match Self::buka(path, periksa) {
             Ok(db) => Ok((db, None)),
             Err(Error::DbCorrupt(_)) => {
                 let cap = path.with_extension(format!("db.corrupt-{}", now_unix()));
@@ -195,6 +193,7 @@ impl Db {
                     }
                 }
                 tracing::warn!(cadangan = %cap.display(), "basis data korup dicadangkan");
+                // Berkas baru belum punya data untuk diperiksa, jadi cukup dibuka.
                 let db = Self::open(path)?;
                 Ok((db, Some(cap)))
             }
@@ -202,7 +201,19 @@ impl Db {
         }
     }
 
-    fn siapkan(conn: Connection) -> Result<Self> {
+    fn buka(path: &Path, periksa: bool) -> Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|source| Error::Io {
+                path: parent.to_path_buf(),
+                source,
+            })?;
+        }
+        periksa_header(path)?;
+        let conn = Connection::open(path).map_err(db_err)?;
+        Self::siapkan(conn, periksa)
+    }
+
+    fn siapkan(conn: Connection, periksa: bool) -> Result<Self> {
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(db_err)?;
         conn.pragma_update(None, "foreign_keys", "ON")
@@ -210,11 +221,16 @@ impl Db {
         conn.pragma_update(None, "synchronous", "NORMAL")
             .map_err(db_err)?;
 
-        let hasil: String = conn
-            .query_row("PRAGMA quick_check", [], |row| row.get(0))
-            .map_err(db_err)?;
-        if hasil != "ok" {
-            return Err(Error::DbCorrupt(hasil));
+        // `quick_check` membaca seluruh berkas (121 ms untuk library 48 KB);
+        // jalur pemulihanlah yang membutuhkannya. Pembukaan normal cukup
+        // membaca header + migrasi, jadi masuk aplikasi tidak menunggu.
+        if periksa {
+            let hasil: String = conn
+                .query_row("PRAGMA quick_check", [], |row| row.get(0))
+                .map_err(db_err)?;
+            if hasil != "ok" {
+                return Err(Error::DbCorrupt(hasil));
+            }
         }
 
         let db = Self { conn };

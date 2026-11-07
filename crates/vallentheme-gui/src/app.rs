@@ -22,6 +22,11 @@ pub fn bangun(state: Shared) -> adw::Application {
     let state_startup = state.clone();
 
     app.connect_startup(move |app| {
+        // GResource hasil build.rs harus didaftarkan dulu agar
+        // `/id/vallentheme/style.css` bisa dimuat.
+        if let Err(err) = gio::resources_register_include!("vallentheme.gresource") {
+            tracing::error!(error = %err, "gagal mendaftarkan GResource");
+        }
         muat_tema(app);
         daftar_aksi(app, &state_startup);
     });
@@ -68,14 +73,22 @@ fn daftar_aksi(app: &adw::Application, state: &Shared) {
     aksi_quit.connect_activate(move |_, _| app_quit.quit());
     app.add_action(&aksi_quit);
 
-    let config_file = state.paths.config_file.clone();
     let aksi_prefs = gio::SimpleAction::new("preferences", None);
-    let app_prefs = app.clone();
+    let state_prefs = state.clone();
     aksi_prefs.connect_activate(move |_, _| {
-        tracing::info!(config = %config_file.display(), "aksi Pengaturan dipanggil");
-        if let Some(jendela) = app_prefs.active_window() {
-            jendela.present();
+        let (nav, toast) = (
+            state_prefs.nav.borrow().clone(),
+            state_prefs.toast.borrow().clone(),
+        );
+        let (Some(nav), Some(toast)) = (nav, toast) else {
+            return;
+        };
+        // Halaman satu instance saja; aksi lain cukup kembali ke halaman itu.
+        if let Some(halaman) = nav.find_page("pengaturan") {
+            nav.pop_to_page(&halaman);
+            return;
         }
+        nav.push(&crate::settings::build(state_prefs.clone(), toast));
     });
     app.add_action(&aksi_prefs);
 
@@ -90,8 +103,14 @@ fn daftar_aksi(app: &adw::Application, state: &Shared) {
     app.add_action(&aksi_about);
 
     let aksi_stop = gio::SimpleAction::new("stop", None);
-    aksi_stop.connect_activate(|_, _| {
-        tracing::info!("aksi Hentikan wallpaper dipanggil (daemon menyusul di Fase 5)");
+    let state_stop = state.clone();
+    aksi_stop.connect_activate(move |_, _| {
+        let toast = state_stop.toast.borrow().clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(crate::dbus_client::stop(""));
+        });
+        crate::edit::tunggu_stop(rx, toast);
     });
     app.add_action(&aksi_stop);
 

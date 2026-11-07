@@ -16,7 +16,12 @@ use crate::i18n::tr;
 use crate::state::Shared;
 
 /// Bangun halaman Edit untuk satu wallpaper.
-pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::NavigationPage {
+pub fn build(
+    state: Shared,
+    toast: adw::ToastOverlay,
+    w: Wallpaper,
+    aktif: bool,
+) -> adw::NavigationPage {
     let awal = w.settings.clone();
     let nilai = Rc::new(RefCell::new(awal));
     let id = w.id;
@@ -33,9 +38,16 @@ pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::Navi
     gambar.set_can_shrink(true);
     gambar.set_size_request(320, 180);
     gambar.set_vexpand(true);
+    // CSS GTK tidak punya `overflow`; potong sudut bulat lewat API widget.
+    gambar.set_overflow(gtk::Overflow::Hidden);
     if let Some(thumb) = &w.thumb_path {
         if thumb.is_file() {
-            gambar.set_filename(Some(thumb));
+            // Picture memakai ukuran asli tekstur sebagai natural size, sehingga
+            // thumbnail 480 px mendorong baris melebihi Clamp 960 dan isinya
+            // terpotong. Skala dulu ke lebar kolom pratinjau.
+            if let Ok(pb) = gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(thumb, 320, 180, false) {
+                gambar.set_paintable(Some(&gtk::gdk::Texture::for_pixbuf(&pb)));
+            }
         }
     }
 
@@ -103,12 +115,44 @@ pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::Navi
         .subtitle("Bawaan mengikuti Pengaturan")
         .model(&opsi_daya)
         .build();
+    
+    // FPS dan resolusi
+    let (fps, res) = {
+        let c = state.config.borrow();
+        (c.performance.fps_cap, c.performance.max_render_height)
+    };
+    
+    const OPSI_FPS: [u32; 5] = [0, 24, 30, 60, 144];
+    let label_fps: Vec<String> = OPSI_FPS.iter().map(|n| {
+        if *n == 0 { tr("Unlimited") } else { format!("{n} fps") }
+    }).collect();
+    let rujukan_fps: Vec<&str> = label_fps.iter().map(String::as_str).collect();
+    let baris_fps = adw::ComboRow::builder()
+        .title(tr("Frame rate limit"))
+        .subtitle("Batas fps wallpaper ini")
+        .model(&gtk::StringList::new(&rujukan_fps))
+        .build();
+    baris_fps.set_selected(OPSI_FPS.iter().position(|n| *n == fps).unwrap_or(0) as u32);
+    
+    const OPSI_RES: [u32; 7] = [0, 720, 1080, 1440, 2160, 2880, 3840];
+    let label_res: Vec<String> = OPSI_RES.iter().map(|n| {
+        if *n == 0 { tr("Original") } else if *n >= 2160 { format!("{}K", n/1080) } else { format!("{n}p") }
+    }).collect();
+    let rujukan_res: Vec<&str> = label_res.iter().map(String::as_str).collect();
+    let baris_res = adw::ComboRow::builder()
+        .title(tr("Render resolution"))
+        .subtitle("Resolusi render wallpaper ini")
+        .model(&gtk::StringList::new(&rujukan_res))
+        .build();
+    baris_res.set_selected(OPSI_RES.iter().position(|n| *n == res).unwrap_or(0) as u32);
 
     grup.add(&baris_fill);
     grup.add(&baris_transisi);
     grup.add(&baris_bisu);
     grup.add(&baris_volume);
     grup.add(&baris_daya);
+    grup.add(&baris_fps);
+    grup.add(&baris_res);
 
     // Nilai awal widget mengikuti pengaturan tersimpan.
     baris_fill.set_selected(indeks_fill(w.settings.fill));
@@ -125,11 +169,20 @@ pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::Navi
     baris_volume.set_visible(video);
     baris_daya.set_visible(video);
 
-    let tombol_terapkan = gtk::Button::with_label(&tr("Set as wallpaper"));
-    tombol_terapkan.add_css_class("vt-primary");
+    let label_tombol = if aktif {
+        tr("Deactivate")
+    } else {
+        tr("Set as wallpaper")
+    };
+    let tombol_terapkan = gtk::Button::with_label(&label_tombol);
+    if aktif {
+        tombol_terapkan.add_css_class("vt-destructive");
+    } else {
+        tombol_terapkan.add_css_class("vt-primary");
+    }
     tombol_terapkan.add_css_class("large");
     tombol_terapkan.set_sensitive(true);
-    tombol_terapkan.set_tooltip_text(Some(&tr("Set as wallpaper")));
+    tombol_terapkan.set_tooltip_text(Some(&label_tombol));
     {
         let nilai = nilai.clone();
         let toast = toast.clone();
@@ -137,17 +190,26 @@ pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::Navi
         let id_wallpaper = w.id.0;
         let path = w.path.clone();
         let kind = w.kind;
+        let wallpaper_aktif = aktif;
         tombol_terapkan.connect_clicked(move |_| {
-            let s = nilai.borrow().clone();
-            let permintaan = permintaan_apply(id_wallpaper, &path, kind, &s);
             tombol.set_sensitive(false);
             let toast = toast.clone();
             let tombol2 = tombol.clone();
-            let (tx, rx) = std::sync::mpsc::channel();
-            std::thread::spawn(move || {
-                let _ = tx.send(crate::dbus_client::apply(&permintaan));
-            });
-            tunggu_apply(rx, toast, tombol2);
+            if wallpaper_aktif {
+                let (tx, rx) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    let _ = tx.send(crate::dbus_client::stop(""));
+                });
+                tunggu_stop_tombol(rx, toast, tombol2);
+            } else {
+                let s = nilai.borrow().clone();
+                let permintaan = permintaan_apply(id_wallpaper, &path, kind, &s);
+                let (tx, rx) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    let _ = tx.send(crate::dbus_client::apply(&permintaan));
+                });
+                tunggu_apply(rx, toast, tombol2);
+            }
         });
     }
 
@@ -259,13 +321,33 @@ pub fn build(state: Shared, toast: adw::ToastOverlay, w: Wallpaper) -> adw::Navi
         });
     }
 
-    // Hemat daya.
+    // Isi hemat daya.
     {
         let nilai = nilai.clone();
         let jadwalkan = jadwalkan.clone();
         baris_daya.connect_selected_notify(move |row| {
             nilai.borrow_mut().power = daya_dari_indeks(row.selected());
             jadwalkan();
+        });
+    }
+
+    // FPS dan resolusi: simpan ke config.toml.
+    {
+        let state = state.clone();
+        baris_fps.connect_selected_notify(move |row| {
+            const OPSI_FPS: [u32; 5] = [0, 24, 30, 60, 144];
+            let fps = OPSI_FPS[row.selected() as usize];
+            state.config.borrow_mut().performance.fps_cap = fps;
+            let _ = state.config.borrow().save(&state.paths.config_file);
+        });
+    }
+    {
+        let state = state.clone();
+        baris_res.connect_selected_notify(move |row| {
+            const OPSI_RES: [u32; 7] = [0, 720, 1080, 1440, 2160, 2880, 3840];
+            let res = OPSI_RES[row.selected() as usize];
+            state.config.borrow_mut().performance.max_render_height = res;
+            let _ = state.config.borrow().save(&state.paths.config_file);
         });
     }
 
@@ -363,6 +445,56 @@ fn tunggu_apply(
             }
             Ok(Err(pesan)) => {
                 tracing::error!(error = %pesan, "Apply gagal");
+                tombol.set_sensitive(true);
+                toast.add_toast(adw::Toast::new(&tr("Failed")));
+                gtk::glib::ControlFlow::Break
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => gtk::glib::ControlFlow::Break,
+        }
+    });
+}
+
+/// Tunggu hasil `Stop` tanpa memblokir main loop; untuk aksi app.stop.
+pub fn tunggu_stop(
+    rx: std::sync::mpsc::Receiver<Result<bool, String>>,
+    toast: Option<adw::ToastOverlay>,
+) {
+    let rx = Rc::new(RefCell::new(rx));
+    gtk::glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
+        let hasil = rx.borrow().try_recv();
+        match hasil {
+            Ok(Ok(_)) => gtk::glib::ControlFlow::Break,
+            Ok(Err(pesan)) => {
+                tracing::error!(error = %pesan, "Stop gagal");
+                if let Some(ref t) = toast {
+                    t.add_toast(adw::Toast::new(&tr("Failed")));
+                }
+                gtk::glib::ControlFlow::Break
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => gtk::glib::ControlFlow::Continue,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => gtk::glib::ControlFlow::Break,
+        }
+    });
+}
+
+/// Tunggu hasil `Stop` tanpa memblokir main loop; untuk halaman Edit dengan tombol.
+fn tunggu_stop_tombol(
+    rx: std::sync::mpsc::Receiver<Result<bool, String>>,
+    toast: adw::ToastOverlay,
+    tombol: gtk::Button,
+) {
+    let rx = Rc::new(RefCell::new(rx));
+    gtk::glib::timeout_add_local(std::time::Duration::from_millis(80), move || {
+        let hasil = rx.borrow().try_recv();
+        match hasil {
+            Ok(Ok(_)) => {
+                tombol.set_sensitive(true);
+                toast.add_toast(adw::Toast::new(&tr("Stopped")));
+                gtk::glib::ControlFlow::Break
+            }
+            Ok(Err(pesan)) => {
+                tracing::error!(error = %pesan, "Stop gagal");
                 tombol.set_sensitive(true);
                 toast.add_toast(adw::Toast::new(&tr("Failed")));
                 gtk::glib::ControlFlow::Break

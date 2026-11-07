@@ -78,6 +78,67 @@ pub fn quit() -> Result<(), String> {
     Ok(())
 }
 
+/// Berlangganan sinyal `StateChanged` dan kirim setiap `status_json` lewat kanal.
+///
+/// Thread ini mencoba ulang tiap 2 detik bila daemon belum ada, dan mengirim
+/// status `idle` saat daemon hilang supaya chip tidak basi.
+pub fn pantau_status() -> std::sync::mpsc::Receiver<String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let idle = r#"{"v":1,"state":"idle","monitors":[]}"#.to_string();
+        let kirim = |json: String| tx.send(json).is_ok();
+        loop {
+            let langganan = zbus::blocking::Connection::session()
+                .ok()
+                .and_then(|koneksi| {
+                    zbus::blocking::Proxy::new(&koneksi, NAMA_BUS, PATH_OBJEK, INTERFACE)
+                        .ok()
+                        .and_then(|proxy| proxy.receive_signal("StateChanged").ok())
+                });
+
+            let Some(langganan) = langganan else {
+                if !kirim(idle.clone()) {
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                continue;
+            };
+
+            // Status awal diambil setelah langganan aktif agar tidak ada perubahan
+            // yang terlewat di antara keduanya.
+            match status() {
+                Ok(json) => {
+                    if !kirim(json) {
+                        return;
+                    }
+                }
+                Err(_) => {
+                    if !kirim(idle.clone()) {
+                        return;
+                    }
+                }
+            }
+
+            for pesan in langganan {
+                match pesan.body().deserialize::<String>() {
+                    Ok(json) => {
+                        if !kirim(json) {
+                            return;
+                        }
+                    }
+                    Err(err) => tracing::warn!(error = %err, "status dari daemon tidak terbaca"),
+                }
+            }
+
+            if !kirim(idle.clone()) {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        }
+    });
+    rx
+}
+
 /// Apakah daemon sedang berjalan di bus.
 pub fn tersedia() -> bool {
     match zbus::blocking::Connection::session() {

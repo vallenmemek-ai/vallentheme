@@ -12,7 +12,7 @@ use vallentheme_core::scan::{self, ScanOptions};
 
 use crate::i18n::tr;
 use crate::state::Shared;
-use crate::widgets::{status_chip, Status};
+use crate::widgets::{status_chip, Status, StatusChip};
 
 /// Data yang bisa berubah selama halaman hidup.
 struct Ui {
@@ -24,6 +24,9 @@ struct Ui {
     hitung: Option<gtk::Label>,
     nav: Option<adw::NavigationView>,
     debounce: Option<gtk::glib::SourceId>,
+    chip: Option<StatusChip>,
+    dipakai: Vec<i64>,
+    kartu: std::collections::HashMap<i64, (gtk::Box, gtk::Widget)>,
 }
 
 /// Bangun halaman Library yang tersambung ke basis data.
@@ -49,13 +52,18 @@ pub fn build(
         hitung: None,
         nav: None,
         debounce: None,
+        chip: None,
+        dipakai: Vec::new(),
+        kartu: std::collections::HashMap::new(),
     }));
 
     ui.borrow_mut().nav = Some(nav.clone());
 
     // ---------- Header ----------
     let header = adw::HeaderBar::new();
-    header.pack_start(&status_chip(Status::TidakBerjalan));
+    let chip = status_chip(Status::TidakBerjalan);
+    header.pack_start(chip.widget());
+    ui.borrow_mut().chip = Some(chip);
 
     let judul = gtk::Label::new(Some("vallentheme"));
     judul.add_css_class("vt-header-title");
@@ -226,7 +234,47 @@ pub fn build(
     // Muat pertama kali.
     muat_ulang(&state, &ui, &flow, &banner, &toast);
 
+    // ---------- Status daemon ----------
+    // Berlangganan `StateChanged` lewat thread pekerja; kanal dibaca dari main loop.
+    {
+        let ui = ui.clone();
+        let rx = Rc::new(RefCell::new(crate::dbus_client::pantau_status()));
+        gtk::glib::timeout_add_local(std::time::Duration::from_millis(120), move || loop {
+            match rx.borrow().try_recv() {
+                Ok(json) => terapkan_status(&ui, &json),
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    return gtk::glib::ControlFlow::Continue
+                }
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    return gtk::glib::ControlFlow::Break
+                }
+            }
+        });
+    }
+
     halaman
+}
+
+/// Terapkan status daemon ke chip dan penanda "dipakai" di kartu.
+fn terapkan_status(ui: &Rc<RefCell<Ui>>, json: &str) {
+    let (status, dipakai) = crate::widgets::urai_status(json);
+    let (chip, kartu) = {
+        let mut u = ui.borrow_mut();
+        u.dipakai = dipakai.clone();
+        (u.chip.clone(), u.kartu.clone())
+    };
+    if let Some(chip) = chip {
+        chip.set(status);
+    }
+    for (id, (widget, tanda)) in &kartu {
+        let aktif = dipakai.contains(id);
+        if aktif {
+            widget.add_css_class("in-use");
+        } else {
+            widget.remove_css_class("in-use");
+        }
+        tanda.set_visible(aktif);
+    }
 }
 
 /// Bilah bawah dengan tombol impor dan mode Pilih.
@@ -408,32 +456,46 @@ fn muat_ulang(
 
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
-        let hasil = db
+        // Tahap 1: daftar saja, supaya kartu tampil tanpa menunggu ffmpeg.
+        let filter_awal = filter.clone();
+        let awal = db
             .call(move |db| {
-                // Buat thumbnail yang belum ada (ffmpeg, di luar main thread).
-                let awal = db.list(&filter, sort, 2000, 0)?;
-                for w in &awal {
-                    let sudah = w.thumb_path.as_ref().map(|p| p.is_file()).unwrap_or(false);
-                    if sudah || w.missing {
-                        continue;
-                    }
-                    if let Err(err) = scan::buat_thumbnail(
-                        db,
-                        w.id,
-                        &dir_thumb,
-                        w.mtime,
-                        w.size_bytes,
-                        w.duration_ms,
-                    ) {
-                        tracing::warn!(wallpaper = w.id.0, error = %err, "thumbnail gagal dibuat");
-                    }
-                }
-                let daftar = db.list(&filter, sort, 2000, 0)?;
-                let total = db.count(&filter)?;
-                Ok((daftar, total))
+                Ok((
+                    db.list(&filter_awal, sort, 2000, 0)?,
+                    db.count(&filter_awal)?,
+                ))
             })
             .map_err(|e| e.to_string());
-        let _ = tx.send(hasil);
+        let gagal = awal.is_err();
+        let _ = tx.send(awal);
+
+        // Tahap 2: buat thumbnail yang belum ada, lalu kirim daftar segar.
+        if !gagal {
+            let hasil = db
+                .call(move |db| {
+                    let awal = db.list(&filter, sort, 2000, 0)?;
+                    for w in &awal {
+                        let sudah = w.thumb_path.as_ref().map(|p| p.is_file()).unwrap_or(false);
+                        if sudah || w.missing {
+                            continue;
+                        }
+                        if let Err(err) = scan::buat_thumbnail(
+                            db,
+                            w.id,
+                            &dir_thumb,
+                            w.mtime,
+                            w.size_bytes,
+                            w.duration_ms,
+                        ) {
+                            tracing::warn!(wallpaper = w.id.0, error = %err, "thumbnail gagal dibuat");
+                        }
+                    }
+                    let daftar = db.list(&filter, sort, 2000, 0)?;
+                    Ok((daftar, db.count(&filter)?))
+                })
+                .map_err(|e| e.to_string());
+            let _ = tx.send(hasil);
+        }
     });
 
     let rx = Rc::new(RefCell::new(rx));
@@ -443,7 +505,7 @@ fn muat_ulang(
     let banner2 = banner.clone();
     let toast2 = toast.clone();
 
-    gtk::glib::timeout_add_local(std::time::Duration::from_millis(40), move || {
+    gtk::glib::timeout_add_local(std::time::Duration::from_millis(16), move || {
         let hasil = rx.borrow().try_recv();
         match hasil {
             Ok(Ok((daftar, total))) => {
@@ -451,7 +513,8 @@ fn muat_ulang(
                 isi_kartu(&state2, &ui2, &flow2, &toast2, &daftar);
                 perbarui_hitungan(&ui2);
                 banner2.set_visible(false);
-                gtk::glib::ControlFlow::Break
+                // Tunggu kiriman kedua (daftar setelah thumbnail dibuat).
+                gtk::glib::ControlFlow::Continue
             }
             Ok(Err(pesan)) => {
                 tracing::error!(error = %pesan, "gagal memuat library");
@@ -477,6 +540,7 @@ fn isi_kartu(
     while let Some(anak) = wadah.first_child() {
         wadah.remove(&anak);
     }
+    ui.borrow_mut().kartu.clear();
 
     if semua.is_empty() {
         let kosong = adw::StatusPage::builder()
@@ -500,12 +564,14 @@ fn isi_kartu(
         label.set_xalign(0.0);
         wadah.append(&label);
 
+        // Lebar tetap per kartu supaya kartu berjejer ke samping dan
+        // FlowBox yang mengatur pembungkusannya saat lebar berubah.
         let baris = gtk::FlowBox::builder()
-            .max_children_per_line(5)
+            .max_children_per_line(8)
             .min_children_per_line(1)
             .column_spacing(16)
             .row_spacing(16)
-            .homogeneous(true)
+            .homogeneous(false)
             .selection_mode(gtk::SelectionMode::None)
             .build();
 
@@ -527,6 +593,8 @@ fn kartu_wallpaper(
     let kartu = gtk::Box::new(gtk::Orientation::Vertical, 0);
     kartu.add_css_class("wp-card");
     kartu.set_size_request(260, 150);
+    // CSS GTK tidak punya `overflow`; potong sudut bulat lewat API widget.
+    kartu.set_overflow(gtk::Overflow::Hidden);
     if w.missing {
         kartu.add_css_class("missing");
     }
@@ -539,7 +607,12 @@ fn kartu_wallpaper(
     gambar.set_vexpand(true);
     if let Some(thumb) = &w.thumb_path {
         if thumb.is_file() {
-            gambar.set_filename(Some(thumb));
+            // Picture memakai ukuran asli tekstur sebagai natural size, sehingga
+            // thumbnail 480 px membuat FlowBox menyisakan satu kolom per kartu.
+            // Skala ke ukuran kartu supaya kartu bisa berjejer ke samping.
+            if let Ok(pb) = gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(thumb, 232, 131, false) {
+                gambar.set_paintable(Some(&gtk::gdk::Texture::for_pixbuf(&pb)));
+            }
         }
     }
 
@@ -578,6 +651,15 @@ fn kartu_wallpaper(
         lencana.append(&badge(&tr("Missing"), "missing"));
     }
     lapis.add_overlay(&lencana);
+
+    // Lencana kanan atas: "Dipakai" saat wallpaper aktif di salah satu monitor.
+    let tanda = badge(&tr("In use"), "in-use");
+    tanda.set_halign(gtk::Align::End);
+    tanda.set_valign(gtk::Align::Start);
+    tanda.set_margin_end(8);
+    tanda.set_margin_top(8);
+    tanda.set_visible(false);
+    lapis.add_overlay(&tanda);
 
     // Teks kiri bawah: nama + meta.
     let teks = gtk::Box::new(gtk::Orientation::Vertical, 2);
@@ -663,7 +745,9 @@ fn kartu_wallpaper(
                     u.terpilih.push(id);
                 }
             } else {
-                let halaman = crate::edit::build(state.clone(), toast.clone(), kartu_w.clone());
+                let dipakai = ui.borrow().dipakai.clone();
+                let aktif = dipakai.contains(&kartu_w.id.0);
+                let halaman = crate::edit::build(state.clone(), toast.clone(), kartu_w.clone(), aktif);
                 if let Some(nav) = ui.borrow().nav.clone() {
                     nav.push(&halaman);
                 }
@@ -672,6 +756,15 @@ fn kartu_wallpaper(
     }
     kartu.add_controller(gestur);
     kartu.set_cursor_from_name(Some("pointer"));
+
+    // Daftarkan untuk pembaruan penanda "dipakai" dari sinyal daemon.
+    if ui.borrow().dipakai.contains(&w.id.0) {
+        kartu.add_css_class("in-use");
+        tanda.set_visible(true);
+    }
+    ui.borrow_mut()
+        .kartu
+        .insert(w.id.0, (kartu.clone(), tanda.clone()));
 
     kartu.upcast()
 }
